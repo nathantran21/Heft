@@ -2897,7 +2897,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.23.3';
+const HEFT_VERSION='0.23.4';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -4064,7 +4064,14 @@ if('serviceWorker' in navigator && !new URLSearchParams(location.search).has('sa
       // now that they've returned to the app — never yank the screen mid-typing.
       if(document.querySelector('.updatepill')&&!userIsBusy())location.reload();
     }
-    window.addEventListener('load',register);
+    // Register immediately rather than waiting for window 'load'. This app has
+    // no other subresources competing for bandwidth (single file + a couple of
+    // small CDN scripts), and registering eagerly removes an entire class of
+    // "did the load event actually fire yet" uncertainty — confirmed on a real
+    // device where the load-gated version silently never registered at all
+    // across a full 20+ second window, while calling register() directly at
+    // script-parse time worked immediately and reliably every time.
+    register();
     document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')recheck();});
     window.addEventListener('focus',recheck);
   })();
