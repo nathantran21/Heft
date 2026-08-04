@@ -1926,7 +1926,7 @@ function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubTog
               <Icon name="link" size={10}/>{task.parentId?'Promoted':'Linked '+(task.childIds||[]).length}
             </span>
           )}
-          {(task.subtasks||[]).length>0&&(<button type="button" className="card__subs" data-expanded={expanded?'true':'false'} data-nodrag="true" style={{'--w':`var(--w-${weight})`}} onClick={(e)=>{e.stopPropagation();setExpanded(o=>!o);}}><span style={{display:'inline-flex',transition:'transform .15s',transform:expanded?'rotate(90deg)':'rotate(0deg)'}}><Icon name="chevron" size={12}/></span><Icon name="subtasks" size={13}/><span>{(task.subtasks||[]).filter(s=>s.done).length}/{(task.subtasks||[]).length} subtask{(task.subtasks||[]).length!==1?'s':''}</span></button>)}
+          {(task.subtasks||[]).length>0&&(<button type="button" className="card__subs" data-expanded={expanded?'true':'false'} data-nodrag="true" style={{'--w':`var(--w-${weight})`}} onClick={(e)=>{e.stopPropagation();setExpanded(o=>!o);}}><span style={{display:'inline-flex',transition:'transform .15s',transform:expanded?'rotate(90deg)':'rotate(0deg)'}}><Icon name="chevron" size={12}/></span><Icon name="subtasks" size={13}/><span>{(task.subtasks||[]).filter(s=>s.done).length+'/'+(task.subtasks||[]).length+' subtask'+((task.subtasks||[]).length!==1?'s':'')}</span></button>)}
           {pendingSubs&&<p className="card__pending"><Icon name="checkcircle" size={12}/>Completed — moves to Done when subtasks finish</p>}
         </div>
       </article>
@@ -2889,7 +2889,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.23.0';
+const HEFT_VERSION='0.23.1';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -3262,6 +3262,7 @@ function App({session}){
   const toastTimer2=useRef(null);
   const promoteRef=useRef(null); // snapshot for undoing a Promote
   const dayCompleteFor=useRef(null); // day-key the day-complete moment already fired for
+  const cycleTickGuard=useRef(new Set()); // absorbs batched same-tick checkbox clicks
   function showToast(msg,action=null){
     if(toastTimer.current)clearTimeout(toastTimer.current);
     if(toastTimer2.current)clearTimeout(toastTimer2.current);
@@ -3277,6 +3278,12 @@ function App({session}){
   // a task can be checked off as complete but stays in its current column until every
   // subtask is done — only then does it move to the Done column.
   function cycleStage(id,evt){
+    // Reentrancy guard: batched same-tick clicks (double-fire, scripted bursts)
+    // collapse to one transition, so the WIP admit check can never be bypassed
+    // by stale state read from the same closure. Real clicks are unaffected.
+    if(cycleTickGuard.current.has(id))return;
+    cycleTickGuard.current.add(id);
+    Promise.resolve().then(()=>cycleTickGuard.current.delete(id));
     const x=tasks.find(t=>t.id===id);
     if(!x)return;
     const subs=x.subtasks||[];
