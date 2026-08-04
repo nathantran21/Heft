@@ -1294,6 +1294,14 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),textarea:focus:
   .counttick,.board__zoom[data-dir="next"],.board__zoom[data-dir="prev"],.card-drag-ghost,.subtree,.subtree__item,.col__empty,.col__empty-cta,.login__hero,.login__card,.login__foot{animation:none!important;}
   .modal-scrim[data-closing="true"],.modal-scrim[data-closing="true"] .modal__panel,.toast[data-leaving="true"]{animation:none!important;}
 }
+/* -- cross-device freshness: a new deploy is ready -- */
+.updatepill{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:70;display:inline-flex;align-items:center;gap:9px;padding:9px 10px 9px 16px;border-radius:999px;background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;box-shadow:0 14px 32px -10px rgba(0,0,0,.5);white-space:nowrap;animation:pillinTop .26s cubic-bezier(.34,1.56,.64,1);}
+.updatepill__dot{width:7px;height:7px;border-radius:50%;background:var(--w-light);flex-shrink:0;animation:syncpulse 1.6s ease-in-out infinite;}
+.updatepill__btn{font:inherit;font-weight:700;color:inherit;background:color-mix(in srgb,var(--bg) 16%,transparent);border:0;border-radius:999px;padding:5px 12px;cursor:pointer;}
+.updatepill__btn:hover{filter:brightness(1.15);}
+.updatepill__btn:active{transform:scale(.95);}
+@keyframes pillinTop{from{opacity:0;transform:translate(-50%,-10px);}to{opacity:1;transform:translate(-50%,0);}}
+@media(prefers-reduced-motion:reduce){.updatepill{animation:none;}.updatepill__dot{animation:none;}}
 </style>
 </head>
 <body>
@@ -2889,7 +2897,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.23.1';
+const HEFT_VERSION='0.23.2';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -3987,8 +3995,57 @@ function Root(){
 ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
 </script>
 <script>
+// Keeps every device on the latest shipped code, not just the latest data.
+// Supabase already syncs tasks/habits in real time (pull on focus, on visibility,
+// and a 5s poll while open) — this closes the other half: an installed PWA that
+// was merely suspended in the background (not fully quit) can keep running an
+// old JS bundle in memory even after a new version is live, since no navigation
+// happens on resume. We actively re-check for a new service worker whenever the
+// app returns to foreground, and surface a small "Update ready" pill (or a quiet
+// auto-refresh if nothing is mid-edit) so devices stop drifting apart visually.
 if('serviceWorker' in navigator && !new URLSearchParams(location.search).has('sandbox')){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  (function(){
+    var pillShown=false;
+    function userIsBusy(){
+      var a=document.activeElement;
+      return !!document.querySelector('.modal-scrim')||(a&&/INPUT|TEXTAREA/.test(a.tagName));
+    }
+    function showUpdatePill(){
+      if(pillShown||document.querySelector('.updatepill'))return;
+      pillShown=true;
+      var p=document.createElement('div');
+      p.className='updatepill';p.setAttribute('role','status');
+      var dot=document.createElement('span');dot.className='updatepill__dot';
+      var msg=document.createElement('span');msg.textContent='Update ready';
+      var btn=document.createElement('button');btn.type='button';btn.className='updatepill__btn';btn.textContent='Refresh';
+      btn.addEventListener('click',function(){location.reload();});
+      p.appendChild(dot);p.appendChild(msg);p.appendChild(btn);
+      document.body.appendChild(p);
+    }
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('sw.js').then(function(reg){
+        function watch(nw){
+          if(!nw)return;
+          nw.addEventListener('statechange',function(){
+            if(nw.state==='installed'&&navigator.serviceWorker.controller)showUpdatePill();
+          });
+        }
+        watch(reg.installing);
+        reg.addEventListener('updatefound',function(){watch(reg.installing);});
+        // Passive checks (browser default) can lag on a long-suspended PWA; actively
+        // re-check whenever the device comes back to foreground, same rhythm as the
+        // app's own data-sync pulls on focus/visibility.
+        function recheck(){
+          reg.update().catch(function(){});
+          // If a pill is already waiting and the user isn't mid-edit, refresh quietly
+          // now that they've returned to the app — never yank the screen mid-typing.
+          if(document.querySelector('.updatepill')&&!userIsBusy())location.reload();
+        }
+        document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')recheck();});
+        window.addEventListener('focus',recheck);
+      }).catch(function(){});
+    });
+  })();
 }
 </script>
 </body>

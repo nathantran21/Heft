@@ -1,5 +1,5 @@
 // Heft offline shell — cache the app so it opens with no connection.
-const CACHE='heft-v14';
+const CACHE='heft-v15';
 const ASSETS=['./','./index.html','./manifest.json',
   './icons/icon-192.png','./icons/icon-512.png','./icons/apple-icon-180.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
