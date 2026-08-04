@@ -1175,6 +1175,42 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),textarea:focus:
   .steprow__check{width:18px;height:18px;}
   .steprow__name,.steprow__input{font-size:12.5px;}
 }
+
+/* ══ BACKLOG + WIP LIMITS ══════════════════════════════════════════════════
+   Backlog is the fourth lane. It reuses the column shell so it stacks under the
+   others on mobile exactly like To Do / In Progress / Done already do. */
+.col[data-stage="backlog"]{background:var(--bg);border-style:dashed;}
+.col[data-stage="backlog"] .col__icon{color:var(--text-faint);}
+.col[data-stage="backlog"] .col__body{max-height:none;}
+.col__meter{height:3px;margin:0 13px 7px;border-radius:2px;background:var(--surface-3);overflow:hidden;flex-shrink:0;}
+.col__meter__fill{display:block;height:100%;background:var(--text-faint);border-radius:2px;transition:width .22s ease,background-color .22s ease;}
+.col__meter[data-wip="at"] .col__meter__fill{background:var(--w-medium);}
+.col__meter[data-wip="over"] .col__meter__fill{background:var(--accent);}
+.col__count[data-wip="at"]{color:var(--w-medium);background:color-mix(in srgb,var(--w-medium) 16%,var(--surface-3));}
+.col__count[data-wip="over"]{color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface-3));}
+@media(prefers-reduced-motion:reduce){.col__meter__fill{transition:none;}}
+
+/* backlog picker inside the task editor's date popover */
+.datepick__backlog{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:8px 10px;border:1px dashed var(--border-strong);border-radius:9px;background:transparent;color:var(--text-dim);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.datepick__backlog:hover{color:var(--accent);border-color:var(--accent);}
+.datepick__backlog[data-on="true"]{color:var(--accent);border-style:solid;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent);}
+
+/* swap sheet */
+.modal__panel--swap{max-width:440px;}
+.swap__head{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:22px 22px 14px;}
+.swap__ico{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent);}
+.swap__title{font-family:var(--font-display);font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--text);}
+.swap__sub{font-size:13px;color:var(--text-dim);}
+.swap__list{display:flex;flex-direction:column;gap:6px;padding:0 16px 4px;max-height:44vh;overflow:auto;}
+.swap__opt{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 12px 11px 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;overflow:hidden;transition:border-color .14s,background .14s;}
+.swap__opt:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface));}
+.swap__opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.swap__opt__rail{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--w,var(--w-none));}
+.swap__opt__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.swap__opt__go{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-faint);}
+.swap__opt:hover .swap__opt__go{color:var(--accent);}
+.swap__foot{display:flex;gap:8px;padding:14px 16px max(16px,env(safe-area-inset-bottom));}
+.swap__foot .btn{flex:1;justify-content:center;}
 </style>
 </head>
 <body>
@@ -1207,8 +1243,21 @@ const STAGES=['todo','doing','done'];
 const MAX_SUBS=10;
 const MAX_STEPS=6;
 function stepsOf(s){return (s&&Array.isArray(s.steps))?s.steps:[];}
-const STAGE_LABELS={todo:'To Do',doing:'In Progress',done:'Done'};
-const STAGE_ICONS={todo:'circle',doing:'halfcircle',done:'checkcircle'};
+// ── Backlog ──────────────────────────────────────────────────────────────
+// A task with date===null lives in the Backlog and belongs to no day.
+// Legacy tasks always carry a date string, and undefined/'' still falls back to
+// today exactly as before, so nothing that already exists can be reinterpreted.
+function isBacklog(t){return !!t&&t.date===null;}
+function taskDay(t){return isBacklog(t)?null:((t&&t.date)||todayKeyNow());}
+function onDay(t,key){return !isBacklog(t)&&taskDay(t)===key;}
+const WIP_DEFAULT={todo:5,doing:2};
+function normWip(w){
+  const src=w&&typeof w==='object'?w:{};
+  const num=(v,d)=>{const n=Math.max(0,Math.min(99,parseInt(v,10)));return isNaN(n)?d:n;};
+  return{todo:num(src.todo,WIP_DEFAULT.todo),doing:num(src.doing,WIP_DEFAULT.doing)};
+}
+const STAGE_LABELS={todo:'To Do',doing:'In Progress',done:'Done',backlog:'Backlog'};
+const STAGE_ICONS={todo:'circle',doing:'halfcircle',done:'checkcircle',backlog:'package'};
 const WEIGHTS=['light','medium','heavy','extra'];
 const WEIGHT_LABELS={light:'Light',medium:'Medium',heavy:'Heavy',extra:'Extra'};
 const WEIGHT_DESC={light:'Quick, low effort',medium:'Moderate time & focus',heavy:'High time, demanding',extra:"Bonus — done when there's bandwidth"};
@@ -1813,7 +1862,7 @@ function BoardEmptyState({onAddTask}){
 // Unified pointer drag — mouse + touch (iPhone/iPad). On touch a short long-press
 // arms the drag so quick vertical swipes still scroll the board; once armed we block
 // native scrolling and auto-scroll at the edges so vertically-stacked columns are reachable.
-function usePointerDrag(setTasks,setDragId){
+function usePointerDrag(setTasks,setDragId,boardRef){
   const ghostRef=useRef(null);
   const stateRef=useRef(null);
   const rafRef=useRef(0);
@@ -1825,7 +1874,7 @@ function usePointerDrag(setTasks,setDragId){
     const cap=e.currentTarget;
     const card=e.currentTarget;
     try{cap.setPointerCapture(e.pointerId);}catch(_){}
-    const st={id:task.id,name:task.name,stage:task.stage,sx:e.clientX,sy:e.clientY,lx:e.clientX,ly:e.clientY,started:false,armed:!isTouch,canceled:false,lastCol:null,holdTimer:null};
+    const st={id:task.id,name:task.name,stage:task.stage,backlog:isBacklog(task),sx:e.clientX,sy:e.clientY,lx:e.clientX,ly:e.clientY,started:false,armed:!isTouch,canceled:false,lastCol:null,holdTimer:null};
     stateRef.current=st;
     function blockScroll(ev){ if(stateRef.current&&stateRef.current.armed&&stateRef.current.started) ev.preventDefault(); }
     window.addEventListener('touchmove',blockScroll,{passive:false});
@@ -1904,9 +1953,23 @@ function usePointerDrag(setTasks,setDragId){
         let ns=st.lastCol;
         if(!ns){const col=highlight(ev.clientX,ev.clientY);if(col)ns=col.dataset.stage;}
         document.querySelectorAll('.col').forEach(c=>c.setAttribute('data-over','false'));
-        if(ns&&ns!==st.stage){
-          if(ns==='done')fireConfetti(ev.clientX,ev.clientY,1);
-          setTasks(ts=>ts.map(t=>{if(t.id!==st.id)return t;if(ns==='done'){const subs=t.subtasks||[];const allDone=subs.length===0||subs.every(x=>x.done);return{...t,completed:true,stage:allDone?'done':'doing'};}return{...t,stage:ns,completed:false};}));
+        const board=boardRef&&boardRef.current;
+        if(ns==='backlog'){
+          // Dropping a dated card into Backlog clears its date. Stage is preserved.
+          if(!st.backlog)setTasks(ts=>ts.map(t=>t.id===st.id?{...t,date:null}:t));
+        }else if(ns&&(ns!==st.stage||st.backlog)){
+          const dk=board?board.focusKey:null;
+          const commit=()=>{
+            if(ns==='done')fireConfetti(ev.clientX,ev.clientY,1);
+            setTasks(ts=>ts.map(t=>{
+              if(t.id!==st.id)return t;
+              // A card pulled out of Backlog lands on the day the board is showing.
+              const dated=st.backlog&&dk?{date:dk}:{};
+              if(ns==='done'){const subs=t.subtasks||[];const allDone=subs.length===0||subs.every(x=>x.done);return{...t,...dated,completed:true,stage:allDone?'done':'doing'};}
+              return{...t,...dated,stage:ns,completed:false};
+            }));
+          };
+          if(board&&board.admit)board.admit(ns,st.id,commit);else commit();
         }
         setDragId(null);
       }
@@ -1928,26 +1991,33 @@ function usePointerDrag(setTasks,setDragId){
     window.addEventListener('pointermove',onMove,{passive:false});
     window.addEventListener('pointerup',onUp);
     window.addEventListener('pointercancel',onUp);
-  },[setTasks,setDragId]);
+  },[setTasks,setDragId,boardRef]);
   return onPD;
 }
 
 // ===== KANBAN =====
-function Column({stage,tasks,setTasks,dragId,setDragId,sort,setSort,onOpenTask,onAddTask,onCycle,onPD,defaultExpanded}){
-  const list=sortTasks(tasks.filter(t=>t.stage===stage),sort);
+function Column({stage,tasks,items,setTasks,dragId,setDragId,sort,setSort,onOpenTask,onAddTask,onCycle,onPD,defaultExpanded,limit,onScrolled}){
+  const list=sortTasks(items||tasks.filter(t=>t.stage===stage),sort);
+  const isBack=stage==='backlog';
+  const lim=(!isBack&&stage!=='done'&&limit>0)?limit:0; // Backlog and Done are never capped
+  const level=lim?(list.length<lim?'under':(list.length===lim?'at':'over')):'under';
+  const pct=lim?Math.min(100,Math.round((list.length/lim)*100)):0;
   return(
-    <section className="col" data-stage={stage}>
+    <section className="col" data-stage={stage} data-wip={lim?level:undefined}>
       <div className="col__head">
         <span className="col__icon" data-stage={stage}><Icon name={STAGE_ICONS[stage]} size={15}/></span>
         <span className="col__name">{STAGE_LABELS[stage]}</span>
-        <span className="col__count">{list.length}</span>
+        <span className="col__count" data-wip={lim?level:undefined} aria-label={lim?(list.length+' of '+lim+', work in progress limit'):(list.length+' tasks')}>{lim?list.length+'/'+lim:list.length}</span>
         <span className="col__spacer"/>
-        <button className="col__add" title="Add task" onClick={()=>onAddTask(stage)}><Icon name="plus" size={16}/></button>
-        <ColSort sort={sort} setSort={setSort}/>
+        <button className="col__add" title={isBack?'Add to Backlog':'Add task'} aria-label={isBack?'Add to Backlog':'Add task to '+STAGE_LABELS[stage]} onClick={()=>onAddTask(stage)}><Icon name="plus" size={16}/></button>
+        {!isBack&&<ColSort sort={sort} setSort={setSort}/>}
       </div>
-      <div className="col__body">
+      {lim>0&&<div className="col__meter" data-wip={level} aria-hidden="true"><span className="col__meter__fill" style={{width:pct+'%'}}/></div>}
+      <div className="col__body" onScroll={onScrolled}>
         {list.length===0?(
-          stage==='todo'?(
+          isBack?(
+            <div className="col__empty">Nothing parked</div>
+          ):stage==='todo'?(
             <div className="col__empty-cta">
               <div className="col__empty-cta__icon"><Icon name="plus" size={18}/></div>
               <p className="col__empty-cta__title">Add your first task</p>
@@ -1983,13 +2053,17 @@ function Column({stage,tasks,setTasks,dragId,setDragId,sort,setSort,onOpenTask,o
     </section>
   );
 }
-function KanbanView({tasks,setTasks,sort,setSort,onOpenTask,onAddTask,onCycle,defaultExpanded}){
+function KanbanView({tasks,backlog,setTasks,sort,setSort,onOpenTask,onAddTask,onCycle,defaultExpanded,wipLimits,boardRef,onColScroll}){
   const [dragId,setDragId]=useState(null);
-  const onPD=usePointerDrag(setTasks,setDragId);
-  if(tasks.length===0)return<BoardEmptyState onAddTask={onAddTask}/>;
+  const onPD=usePointerDrag(setTasks,setDragId,boardRef);
+  const back=backlog||[];
+  if(tasks.length===0&&back.length===0)return<BoardEmptyState onAddTask={onAddTask}/>;
+  const lims=wipLimits||WIP_DEFAULT;
   return(
     <div className="kanban" data-dragging={dragId?'true':'false'}>
-      {STAGES.map(stg=><Column key={stg} stage={stg} tasks={tasks} setTasks={setTasks} dragId={dragId} setDragId={setDragId} sort={sort} setSort={setSort} onOpenTask={onOpenTask} onAddTask={onAddTask} onCycle={onCycle} onPD={onPD} defaultExpanded={defaultExpanded}/>)}
+      {STAGES.map(stg=><Column key={stg} stage={stg} tasks={tasks} setTasks={setTasks} dragId={dragId} setDragId={setDragId} sort={sort} setSort={setSort} onOpenTask={onOpenTask} onAddTask={onAddTask} onCycle={onCycle} onPD={onPD} defaultExpanded={defaultExpanded} limit={lims[stg]||0} onScrolled={onColScroll?()=>onColScroll(stg):undefined}/>)}
+      {/* Fourth lane: undated work. Stacks under the others on mobile, same as every column. */}
+      <Column key="backlog" stage="backlog" tasks={tasks} items={back} setTasks={setTasks} dragId={dragId} setDragId={setDragId} sort={sort} setSort={setSort} onOpenTask={onOpenTask} onAddTask={onAddTask} onCycle={onCycle} onPD={onPD} defaultExpanded={defaultExpanded} limit={0} onScrolled={onColScroll?()=>onColScroll('backlog'):undefined}/>
     </div>
   );
 }
@@ -2037,7 +2111,8 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
   const [tag,setTag]=useState(initial?.tag||'');
   const [notes,setNotes]=useState(initial?.notes||'');
   const [showNotes,setShowNotes]=useState(!!(initial?.notes));
-  const [date,setDate]=useState(initial?.date||todayKeyNow());
+  const [date,setDate]=useState((initial&&initial.date)||todayKeyNow());
+  const [backlog,setBacklog]=useState(initial?initial.date===null:false);
   const [showCal,setShowCal]=useState(false);
   const [showStage,setShowStage]=useState(false);
   const [showMore,setShowMore]=useState(false);
@@ -2077,7 +2152,7 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
     const allDone=remaining.length===0||remaining.every(x=>x.done);
     const finalStage=completed?(allDone?'done':'doing'):stage;
     onPromote({
-      parent:{id:initial.id,seq:initial.seq||Date.now(),date:date||todayKeyNow(),name:name.trim()||initial.name,weight,stage:finalStage,completed,tag,notes:notes.trim(),subtasks:remaining},
+      parent:{id:initial.id,seq:initial.seq||Date.now(),date:backlog?null:(date||todayKeyNow()),name:name.trim()||initial.name,weight,stage:finalStage,completed,tag,notes:notes.trim(),subtasks:remaining},
       sub:s,index:idx,tags
     });
   }
@@ -2085,7 +2160,7 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
   const [confirmTagDel,setConfirmTagDel]=useState(null);
   function dropTag(t){setTags(ls=>ls.filter(x=>x!==t));if(tag===t)setTag('');setConfirmTagDel(null);}
   function moveSub(from,to){setSubtasks(arr=>{if(to<0||to>=arr.length||from===to)return arr;const next=arr.slice();const[m]=next.splice(from,1);next.splice(to,0,m);return next;});}
-  function save(){const trimmed=name.trim();if(!trimmed)return;const completed=stage==='done';const allDone=subtasks.length===0||subtasks.every(s=>s.done);const finalStage=completed?(allDone?'done':'doing'):stage;if(onSave)onSave({id:initial?.id||uid(),seq:initial?.seq||Date.now(),date:date||todayKeyNow(),name:trimmed,weight,stage:finalStage,completed,tag,notes:notes.trim(),subtasks},tags);}
+  function save(){const trimmed=name.trim();if(!trimmed)return;const completed=stage==='done';const allDone=subtasks.length===0||subtasks.every(s=>s.done);const finalStage=completed?(allDone?'done':'doing'):stage;if(onSave)onSave({id:initial?.id||uid(),seq:initial?.seq||Date.now(),date:backlog?null:(date||todayKeyNow()),name:trimmed,weight,stage:finalStage,completed,tag,notes:notes.trim(),subtasks},tags);}
   const subDone=subtasks.filter(s=>s.done).length;
   const hasDate=editing&&!!(initial&&initial.date);
   const moveBase=new Date((initial?.date||date)+'T00:00:00');
@@ -2171,11 +2246,14 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
           <div className="field-row">
             <div className="field" style={{position:'relative'}}>
               <span className="field__lbl">Date</span>
-              <button type="button" className="pickbtn" onClick={()=>{setShowCal(o=>!o);setShowStage(false);}}><Icon name="cal" size={15}/><span>{new Date(date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span><span className="pickbtn__chev"><Icon name="chevDown" size={15}/></span></button>
+              <button type="button" className="pickbtn" aria-label={backlog?'Date: Backlog':'Date'} onClick={()=>{setShowCal(o=>!o);setShowStage(false);}}><Icon name={backlog?'package':'cal'} size={15}/><span>{backlog?'Backlog':new Date(date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span><span className="pickbtn__chev"><Icon name="chevDown" size={15}/></span></button>
               {showCal&&(<>
                 <div className="datepick__scrim" onMouseDown={(e)=>{e.stopPropagation();setShowCal(false);}}/>
                 <div className="datepick__pop" onMouseDown={(e)=>e.stopPropagation()}>
-                  <MiniCalendar focusDate={new Date(date+'T00:00:00')} setFocusDate={(d)=>{setDate(dayKey(d));setShowCal(false);}}/>
+                  <MiniCalendar focusDate={new Date(date+'T00:00:00')} setFocusDate={(d)=>{setDate(dayKey(d));setBacklog(false);setShowCal(false);}}/>
+                  <button type="button" className="datepick__backlog" data-on={backlog?'true':'false'} onClick={()=>{setBacklog(b=>!b);setShowCal(false);}}>
+                    <Icon name="package" size={14}/>{backlog?'Give it a date':'Move to Backlog'}
+                  </button>
                 </div>
               </>)}
             </div>
@@ -2462,7 +2540,7 @@ function CropModal({src,onConfirm,onCancel}){
   );
 }
 
-function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTypeface,accent,setAccent,celebrate,setCelebrate,zoom,setZoom,subExpandDefault,setSubExpandDefault,rollover,setRollover,templatesCount,onOpenTemplates,onSave,onPhotoSave,onClearTasks,clearScopeLabel,clearCount,onOpenArchive,archiveCount,onClose,onLogout}){
+function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTypeface,accent,setAccent,celebrate,setCelebrate,zoom,setZoom,subExpandDefault,setSubExpandDefault,rollover,setRollover,wipLimits,setWipLimits,templatesCount,onOpenTemplates,onSave,onPhotoSave,onClearTasks,clearScopeLabel,clearCount,onOpenArchive,archiveCount,onClose,onLogout}){
   // Appearance applies live for preview; Cancel restores what you walked in with.
   const initialLook=useRef({dark,typeface,accent,celebrate});
   function cancel(){const i=initialLook.current;setDark(i.dark);setTypeface(i.typeface);setAccent(i.accent);setCelebrate(i.celebrate);if(onClose)onClose();}
@@ -2570,6 +2648,19 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
               }/>
               <SetRow icon="filetext" color="var(--w-medium)" label="Templates" sub={templatesCount>0?templatesCount+' saved':'No templates yet'} chevron onClick={onOpenTemplates}/>
             </SetSection>
+            <SetSection label="Work in progress limits">
+              {[['todo','To Do'],['doing','In Progress']].map(([k,lbl])=>(
+                <SetRow key={k} icon={STAGE_ICONS[k]} color={k==='todo'?'var(--w-light)':'var(--accent)'} label={lbl+' limit'}
+                  sub={((wipLimits||WIP_DEFAULT)[k]||0)===0?'Off — no cap on this column':'Asks what comes out once you hit '+(wipLimits||WIP_DEFAULT)[k]}
+                  control={
+                    <div className="zoom-inline">
+                      <button type="button" aria-label={'Decrease '+lbl+' limit'} disabled={((wipLimits||WIP_DEFAULT)[k]||0)<=0} onClick={()=>setWipLimits(w=>normWip({...(w||WIP_DEFAULT),[k]:((w||WIP_DEFAULT)[k]||0)-1}))}>−</button>
+                      <span className="zoom-inline__val" aria-live="polite">{((wipLimits||WIP_DEFAULT)[k]||0)===0?'Off':(wipLimits||WIP_DEFAULT)[k]}</span>
+                      <button type="button" aria-label={'Increase '+lbl+' limit'} disabled={((wipLimits||WIP_DEFAULT)[k]||0)>=20} onClick={()=>setWipLimits(w=>normWip({...(w||WIP_DEFAULT),[k]:((w||WIP_DEFAULT)[k]||0)+1}))}>+</button>
+                    </div>
+                  }/>
+              ))}
+            </SetSection>
             <SetSection label="Daily rollover">
               <div className="rollopts">
                 {ROLLOVER_MODES.map(o=>(
@@ -2611,7 +2702,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.20.0';
+const HEFT_VERSION='0.21.0';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -2782,7 +2873,7 @@ function App({session}){
   useEffect(()=>{
     function onKey(e){
       if(e.key!=='Escape')return;
-      setModal(m=>m?null:m);setCarryOpen(false);setShowTemplates(false);setSavingTemplate(v=>v?null:v);
+      setModal(m=>m?null:m);setCarryOpen(false);setShowTemplates(false);setSavingTemplate(v=>v?null:v);setSwap(null);
     }
     window.addEventListener('keydown',onKey);
     return()=>window.removeEventListener('keydown',onKey);
@@ -2798,6 +2889,8 @@ function App({session}){
   useEffect(()=>{localStorage.setItem('heft.zoom',String(zoom));},[zoom]); // zoom stays local to this device
   const [sort,setSort]=useState(()=>(local&&local.sort)||'created');
   const [rollover,setRollover]=useState(()=>({...ROLLOVER_DEFAULT,...((local&&local.rollover)||{})}));
+  const [wipLimits,setWipLimits]=useState(()=>normWip(local&&local.wipLimits)); // 0 on either lane = off
+  const [swap,setSwap]=useState(null); // {stage,limit,count,apply} — the "what comes out?" sheet
   const [bannerDismissed,setBannerDismissed]=useState({});
   const [rollTick,setRollTick]=useState(0);
   const [carryOpen,setCarryOpen]=useState(false); // carry-over confirm dialog
@@ -2852,6 +2945,7 @@ function App({session}){
     if(s.sidebarWidth)setSidebarWidth(s.sidebarWidth);
     if(s.sort)setSort(s.sort);
     if(s.rollover)setRollover({...ROLLOVER_DEFAULT,...s.rollover});
+    if(s.wipLimits)setWipLimits(normWip(s.wipLimits));
     if(s.templates)setTemplates(s.templates);
   }
 
@@ -2890,7 +2984,7 @@ function App({session}){
     setSyncing(true);flashPill('syncing');
     const now=Date.now();lastSaveAt.current=now;
     const ts=new Date(now).toISOString();
-    const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,_savedAt:now};
+    const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
     localStorage.setItem(LS_KEY,JSON.stringify(blob));
     if(SANDBOX){setSyncing(false);flashPill('ok');return;}
     const{error}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
@@ -2908,7 +3002,7 @@ function App({session}){
         if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
         const now=Date.now();lastSaveAt.current=now;
         const ts=new Date(now).toISOString();
-        const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,_savedAt:now};
+        const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
         localStorage.setItem(LS_KEY,JSON.stringify(blob));
         if(SANDBOX)return;
         sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'}).then(({error})=>{
@@ -2922,7 +3016,7 @@ function App({session}){
     }
     document.addEventListener('visibilitychange',onVis);
     return()=>document.removeEventListener('visibilitychange',onVis);
-  },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates]);
+  },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits]);
 
   // Poll every 5s while in foreground — Notion-like sync responsiveness
   useEffect(()=>{
@@ -2957,14 +3051,14 @@ function App({session}){
     saveTimer.current=setTimeout(async()=>{
       const now=Date.now();lastSaveAt.current=now;
       const ts=new Date(now).toISOString();
-      const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,_savedAt:now};
+      const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
       localStorage.setItem(LS_KEY,JSON.stringify(blob));
       const settlePill=()=>setSyncPill(pv=>{if(pv&&pv.state==='syncing'){if(pillTimer.current)clearTimeout(pillTimer.current);pillTimer.current=setTimeout(()=>setSyncPill(null),1600);return{state:'ok'};}return pv;});
       if(SANDBOX){setSaveError(false);dirtyRef.current=false;settlePill();return;}
       const{error}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
       if(error){setSaveError(true);console.warn('[Heft] save failed:',error);}else{setSaveError(false);dirtyRef.current=false;setLastSyncedAt(Date.now());settlePill();}
     },500);
-  },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates]);
+  },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits]);
 
   async function logout(){if(SANDBOX){setModal(null);return;}await sb.auth.signOut();setModal(null);}
 
@@ -2992,6 +3086,7 @@ function App({session}){
     else if(x.stage==='todo'){patch={stage:'doing'};} // first tap → in progress
     else if(allSubDone){patch={completed:true,stage:'done'};} // complete → move to Done
     else{patch={completed:true,stage:'doing'};} // checked complete in place, stays in its column
+    const run=()=>{
     setTasks(ts=>ts.map(t=>t.id===id?{...t,...patch}:t));
     // First-time coach mark for the 3-state checkbox — taught in-product, once.
     if(patch.stage==='doing'&&!patch.completed&&!localStorage.getItem('heft.hint.cycle')){
@@ -3007,7 +3102,7 @@ function App({session}){
         const r=evt.currentTarget.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;
       }else if(evt&&evt.clientX!=null){cx=evt.clientX;cy=evt.clientY;}
       const dk=dayKey(focusDate);
-      const remaining=tasks.filter(t=>t.id!==id&&(t.date||todayKeyNow())===dk&&t.stage!=='done'&&!t.completed).length;
+      const remaining=tasks.filter(t=>t.id!==id&&onDay(t,dk)&&t.stage!=='done'&&!t.completed).length;
       if(remaining===0&&dayCompleteFor.current!==dk){
         dayCompleteFor.current=dk;
         setTimeout(fireDayComplete,180);
@@ -3020,16 +3115,68 @@ function App({session}){
         }
       }
     }
+    };
+    // Tapping a To Do card into In Progress is a real column entry, so it honours the limit too.
+    if(patch.stage==='doing'&&!patch.completed&&x.stage==='todo'&&onDay(x,dayKey(focusDate)))admit('doing',id,run);
+    else run();
   }
 
   const filteredTasks=useMemo(()=>{
     const dkey=dayKey(focusDate);
-    let list=tasks.filter(t=>(t.date||todayKeyNow())===dkey);
+    let list=tasks.filter(t=>onDay(t,dkey));
     if(activeWeights.length>0)list=list.filter(t=>activeWeights.includes(t.weight));
     if(activeTag!==null)list=list.filter(t=>t.tag===activeTag);
     if(query.trim())list=list.filter(t=>t.name.toLowerCase().includes(query.trim().toLowerCase())||(t.notes||'').toLowerCase().includes(query.trim().toLowerCase()));
     return list;
   },[tasks,activeWeights,activeTag,query,focusDate]);
+
+  // Backlog: undated work. Uncapped, never day-scoped, same filters as the board.
+  const backlogTasks=useMemo(()=>{
+    let list=tasks.filter(isBacklog);
+    if(activeWeights.length>0)list=list.filter(t=>activeWeights.includes(t.weight));
+    if(activeTag!==null)list=list.filter(t=>t.tag===activeTag);
+    if(query.trim())list=list.filter(t=>t.name.toLowerCase().includes(query.trim().toLowerCase())||(t.notes||'').toLowerCase().includes(query.trim().toLowerCase()));
+    return list;
+  },[tasks,activeWeights,activeTag,query]);
+
+  // ===== WIP limits =====
+  // A full column never blocks the action. It asks what comes out instead, and
+  // "Go over anyway" is always one click away. Backlog and Done are never capped.
+  function colCount(stage,exceptId){
+    const dk=dayKey(focusDate);
+    return tasks.filter(t=>t.id!==exceptId&&onDay(t,dk)&&t.stage===stage).length;
+  }
+  function admit(stage,taskId,apply){
+    const lim=(wipLimits||WIP_DEFAULT)[stage]||0;
+    if(!lim||stage==='done'||stage==='backlog'){apply();return;}
+    const n=colCount(stage,taskId);
+    if(n<lim){apply();return;}
+    setSwap({stage,limit:lim,count:n,apply});
+  }
+  // Keep the drag engine reading live board state without re-arming on every render.
+  const boardRef=useRef(null);
+  boardRef.current={focusKey:dayKey(focusDate),admit};
+
+  function sendToBacklog(id){
+    const t=tasks.find(x=>x.id===id);const prevDate=t?t.date:null;
+    setTasks(ts=>ts.map(x=>x.id===id?{...x,date:null}:x));
+    return prevDate;
+  }
+  function resolveSwap(outId){
+    const s=swap;if(!s)return;
+    const prev=sendToBacklog(outId);
+    const out=tasks.find(x=>x.id===outId);
+    setSwap(null);
+    s.apply();
+    showToast('Moved “'+((out&&out.name)||'task')+'” to Backlog',{label:'Undo',fn:()=>{
+      setTasks(ts=>ts.map(x=>x.id===outId?{...x,date:prev}:x));
+    }});
+  }
+  function overrideSwap(){
+    const s=swap;if(!s)return;
+    setSwap(null);
+    s.apply();
+  }
 
   // apply accent + sync the browser/title-bar theme color to it
   // Set html[data-dark] synchronously during render — before paint — so the
@@ -3076,7 +3223,7 @@ function App({session}){
   // Day progress for the ring: all tasks on the focused day, unfiltered.
   const dayStats=useMemo(()=>{
     const dk=dayKey(focusDate);
-    const list=tasks.filter(t=>(t.date||todayKeyNow())===dk);
+    const list=tasks.filter(t=>onDay(t,dk));
     return{total:list.length,done:list.filter(t=>t.completed||t.stage==='done').length};
   },[tasks,focusDate]);
 
@@ -3086,7 +3233,7 @@ function App({session}){
   // Carrying from a past day brings tasks to TODAY, not to another day still in the past.
   const targetDate=dayKey(focusDate)<dayKey(todayDate())?todayDate():shiftDay(focusDate,1);
   const targetKey=dayKey(targetDate);
-  const unfinished=useMemo(()=>tasks.filter(t=>(t.date||todayKeyNow())===focusKey&&t.stage!=='done'&&!t.completed),[tasks,focusKey]);
+  const unfinished=useMemo(()=>tasks.filter(t=>onDay(t,focusKey)&&t.stage!=='done'&&!t.completed),[tasks,focusKey]);
   const nextLabel=targetDate.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
   const fromLabel=focusDate.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 
@@ -3100,7 +3247,7 @@ function App({session}){
     const before=tasks.find(t=>t.id===parent.id)||null;
     const child={
       id:uid(),seq:Date.now(),
-      date:parent.date, // Phase 2 sends this to Backlog (date=null); until then it stays on the parent's day
+      date:null, // lands in the Backlog so it gets prioritised deliberately, not dumped on today
       stage:'todo',name:sub.name,weight:'light',tag:parent.tag||'',
       subtasks:stepsOf(sub).map(p=>({id:uid(),name:p.name,done:!!p.done,steps:[]})),
       notes:'',completed:false,parentId:parent.id,childIds:[]
@@ -3115,7 +3262,7 @@ function App({session}){
     if(modalTags)setTags(modalTags);
     setModal(null);
     promoteRef.current={before,childId:child.id,parentId:parent.id};
-    showToast('Promoted “'+sub.name+'” to its own task',{label:'Undo',fn:()=>{
+    showToast('Promoted “'+sub.name+'” to the Backlog',{label:'Undo',fn:()=>{
       const u=promoteRef.current;if(!u)return;
       setTasks(ts=>{
         let next=ts.filter(t=>t.id!==u.childId);
@@ -3171,15 +3318,26 @@ function App({session}){
   const showBanner=triggered&&!rollover.auto&&!bannerDismissed[focusKey];
   // Tasks stranded on ANY past day are invisible from today's board — surface them here.
   const pastUnfinished=useMemo(()=>focusKey===todayK&&rollover.mode!=='manual'
-    ?tasks.filter(t=>(t.date||todayKeyNow())<todayK&&t.stage!=='done'&&!t.completed)
+    ?tasks.filter(t=>!isBacklog(t)&&taskDay(t)<todayK&&t.stage!=='done'&&!t.completed)
     :[],[tasks,focusKey,todayK,rollover.mode]);
   const showPastBanner=pastUnfinished.length>0&&!bannerDismissed['past:'+todayK];
   function rescuePast(){
-    const moved=pastUnfinished.map(t=>({id:t.id,date:t.date||todayKeyNow()}));
+    const moved=pastUnfinished.map(t=>({id:t.id,date:taskDay(t)}));
     moveDayBulk(moved.map(m=>m.id),todayK);
     setBannerDismissed(d=>({...d,['past:'+todayK]:true}));
     if(flashPill)flashPill('syncing');
     showToast('Brought '+moved.length+' to today',{label:'Undo',fn:()=>{
+      setTasks(ts=>ts.map(t=>{const m=moved.find(x=>x.id===t.id);return m?{...t,date:m.date}:t;}));
+    }});
+  }
+  // Same rescue, other destination: park it instead of forcing it onto today.
+  function rescuePastToBacklog(){
+    const moved=pastUnfinished.map(t=>({id:t.id,date:taskDay(t)}));
+    if(moved.length===0)return;
+    moveDayBulk(moved.map(m=>m.id),null);
+    setBannerDismissed(d=>({...d,['past:'+todayK]:true}));
+    if(flashPill)flashPill('syncing');
+    showToast('Moved '+moved.length+' to Backlog',{label:'Undo',fn:()=>{
       setTasks(ts=>ts.map(t=>{const m=moved.find(x=>x.id===t.id);return m?{...t,date:m.date}:t;}));
     }});
   }
@@ -3261,7 +3419,7 @@ function App({session}){
         <div className="board__zoom" style={{zoom:zoom}}>
           <FilterChips weights={activeWeights} tag={activeTag} query={query.trim()} clearWeight={toggleWeight} clearTag={()=>setActiveTag(null)} clearQuery={()=>setQuery('')}/>
           {view==='kanban'
-            ?<KanbanView tasks={filteredTasks} setTasks={setTasks} sort={sort} setSort={setSort} onOpenTask={(t)=>setModal({type:'task',data:t})} onAddTask={(stage)=>setModal({type:'task',data:{stage,date:dayKey(focusDate)}})} onCycle={cycleStage} defaultExpanded={subExpandDefault}/>
+            ?<KanbanView tasks={filteredTasks} backlog={backlogTasks} setTasks={setTasks} sort={sort} setSort={setSort} wipLimits={wipLimits} boardRef={boardRef} onOpenTask={(t)=>setModal({type:'task',data:t})} onAddTask={(stage)=>setModal({type:'task',data:stage==='backlog'?{stage:'todo',date:null}:{stage,date:dayKey(focusDate)}})} onCycle={cycleStage} defaultExpanded={subExpandDefault}/>
             :<WeightView tasks={filteredTasks} setTasks={setTasks} onOpenTask={(t)=>setModal({type:'task',data:t})} onCycle={cycleStage} defaultExpanded={subExpandDefault}/>
           }
         </div>
@@ -3280,6 +3438,7 @@ function App({session}){
             <span className="rollbanner__txt"><strong>{pastUnfinished.length} unfinished</strong> from earlier day{pastUnfinished.length===1?'':'s'} — bring {pastUnfinished.length===1?'it':'them'} to today?</span>
             <div className="rollbanner__actions">
               <button type="button" className="btn btn--primary btn--sm" onClick={rescuePast}><Icon name="carryover" size={14}/>Bring to today</button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={rescuePastToBacklog}><Icon name="package" size={14}/>Move to Backlog</button>
               <button type="button" className="rollbanner__x" onClick={()=>setBannerDismissed(d=>({...d,['past:'+todayK]:true}))} aria-label="Dismiss"><Icon name="x" size={14}/></button>
             </div>
           </div>
@@ -3339,6 +3498,36 @@ function App({session}){
         {/* Toast */}
         {toast&&<div className="toast" role="status" style={{display:'flex',alignItems:'center',gap:10}}><span className="toast__msg">{toast.msg}</span>{toast.action&&<button className="toast__action" onClick={()=>{toast.action.fn();setToast(null);}}>{toast.action.label}</button>}</div>}
 
+        {/* WIP swap sheet — a full column asks what comes out, it never blocks */}
+        {swap&&(()=>{
+          const dk=dayKey(focusDate);
+          const inCol=sortTasks(tasks.filter(t=>onDay(t,dk)&&t.stage===swap.stage),sort);
+          return(
+          <div className="modal-scrim" onMouseDown={()=>setSwap(null)}>
+            <div className="modal__panel modal__panel--swap" role="dialog" aria-modal="true" aria-label={STAGE_LABELS[swap.stage]+' is at its limit'} onMouseDown={(e)=>e.stopPropagation()}>
+              <div className="swap__head">
+                <span className="swap__ico"><Icon name="layout" size={20}/></span>
+                <span className="swap__title">{STAGE_LABELS[swap.stage]} is full ({swap.count}/{swap.limit}).</span>
+                <span className="swap__sub">What comes out?</span>
+              </div>
+              <div className="swap__list" role="list">
+                {inCol.map(t=>(
+                  <button key={t.id} type="button" role="listitem" className="swap__opt" style={{'--w':`var(--w-${t.weight||'none'})`}} onClick={()=>resolveSwap(t.id)}>
+                    <span className="swap__opt__rail" aria-hidden="true"/>
+                    <span className="swap__opt__name">{t.name}</span>
+                    <span className="swap__opt__go"><Icon name="package" size={14}/>Backlog</span>
+                  </button>
+                ))}
+                {inCol.length===0&&<div className="col__empty">Nothing to swap out</div>}
+              </div>
+              <div className="swap__foot">
+                <button type="button" className="btn btn--ghost" onClick={()=>setSwap(null)}>Cancel</button>
+                <button type="button" className="btn btn--ghost" onClick={overrideSwap}>Go over anyway</button>
+              </div>
+            </div>
+          </div>);
+        })()}
+
         {/* Carry-over confirm dialog */}
         {carryOpen&&(
           <div className="modal-scrim" onMouseDown={()=>setCarryOpen(false)}>
@@ -3363,14 +3552,21 @@ function App({session}){
           initial={modal.data}
           tags={tags}
           onSave={(t,modalTags)=>{
-            setTasks(ts=>{const idx=ts.findIndex(x=>x.id===t.id);let next=idx>=0?ts.map(x=>x.id===t.id?t:x):[...ts,t];
-              if(modalTags){const removed=tags.filter(x=>!modalTags.includes(x));if(removed.length)next=next.map(x=>removed.includes(x.tag)?{...x,tag:''}:x);}
-              return next;});
-            if(modalTags)setTags(modalTags);
-            const savedDay=t.date||todayKeyNow();
-            if(savedDay!==dayKey(focusDate)){showToast('Added to '+carryLabel(new Date(savedDay+'T00:00:00')),{label:'View',fn:()=>setFocusDate(new Date(savedDay+'T00:00:00'))});}
-            else showToast(modal.data?.name?'Task saved':'Task added');
+            const prev=tasks.find(x=>x.id===t.id)||null;
+            const wasNew=!prev;
+            const entering=!isBacklog(t)&&onDay(t,dayKey(focusDate))&&(t.stage==='todo'||t.stage==='doing')&&(!prev||prev.stage!==t.stage||taskDay(prev)!==taskDay(t));
             setModal(null);
+            const commit=()=>{
+              setTasks(ts=>{const idx=ts.findIndex(x=>x.id===t.id);let next=idx>=0?ts.map(x=>x.id===t.id?t:x):[...ts,t];
+                if(modalTags){const removed=tags.filter(x=>!modalTags.includes(x));if(removed.length)next=next.map(x=>removed.includes(x.tag)?{...x,tag:''}:x);}
+                return next;});
+              if(modalTags)setTags(modalTags);
+              if(isBacklog(t)){showToast(wasNew?'Added to Backlog':'Saved to Backlog');return;}
+              const savedDay=taskDay(t);
+              if(savedDay!==dayKey(focusDate)){showToast('Added to '+carryLabel(new Date(savedDay+'T00:00:00')),{label:'View',fn:()=>setFocusDate(new Date(savedDay+'T00:00:00'))});}
+              else showToast(modal.data?.name?'Task saved':'Task added');
+            };
+            if(entering)admit(t.stage,t.id,commit);else commit();
           }}
           onDelete={(id)=>{
             const del=tasks.find(t=>t.id===id);
@@ -3400,7 +3596,7 @@ function App({session}){
           onClose={()=>setModal(null)}/>
       )}
       {modal?.type==='settings'&&(
-        <SettingsModal profile={profile} userId={session.user.id} dark={dark} setDark={setDark} view={view} setView={setView} typeface={typeface} setTypeface={setTypeface} accent={accent} setAccent={setAccent} celebrate={celebrate} setCelebrate={setCelebrate} zoom={zoom} setZoom={setZoom} subExpandDefault={subExpandDefault} setSubExpandDefault={setSubExpandDefault} rollover={rollover} setRollover={setRollover} templatesCount={templates.length} onOpenTemplates={()=>{setModal(null);setShowTemplates(true);}} onSave={setProfile} onClearTasks={()=>{const dk=dayKey(focusDate);const removed=tasks.filter(t=>(t.date||todayKeyNow())===dk);if(removed.length){const stamp=Date.now();setTaskArchive(a=>[...removed.map(t=>({...t,archivedAt:stamp})),...a.filter(x=>!removed.some(r=>r.id===x.id))]);}setTasks(ts=>ts.filter(t=>(t.date||todayKeyNow())!==dk));showToast(removed.length===1?'1 task archived for this day':removed.length+' tasks archived for this day');setModal(null);}} clearScopeLabel={fullDateLabel(focusDate).text} clearCount={tasks.filter(t=>(t.date||todayKeyNow())===dayKey(focusDate)).length} onOpenArchive={()=>setModal({type:'habitArchive'})} archiveCount={habitArchive.length+taskArchive.length} onPhotoSave={(url)=>{const updated={...profile,photo:url};setProfile(updated);const now=Date.now();lastSaveAt.current=now;const ts=new Date(now).toISOString();const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile:updated,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,_savedAt:now};localStorage.setItem(LS_KEY,JSON.stringify(blob));if(!SANDBOX)sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});showToast('Profile photo synced ✓');}} onClose={()=>setModal(null)} onLogout={logout}/>
+        <SettingsModal profile={profile} userId={session.user.id} dark={dark} setDark={setDark} view={view} setView={setView} typeface={typeface} setTypeface={setTypeface} accent={accent} setAccent={setAccent} celebrate={celebrate} setCelebrate={setCelebrate} zoom={zoom} setZoom={setZoom} subExpandDefault={subExpandDefault} setSubExpandDefault={setSubExpandDefault} rollover={rollover} setRollover={setRollover} wipLimits={wipLimits} setWipLimits={setWipLimits} templatesCount={templates.length} onOpenTemplates={()=>{setModal(null);setShowTemplates(true);}} onSave={setProfile} onClearTasks={()=>{const dk=dayKey(focusDate);const removed=tasks.filter(t=>onDay(t,dk));if(removed.length){const stamp=Date.now();setTaskArchive(a=>[...removed.map(t=>({...t,archivedAt:stamp})),...a.filter(x=>!removed.some(r=>r.id===x.id))]);}setTasks(ts=>ts.filter(t=>!onDay(t,dk)));showToast(removed.length===1?'1 task archived for this day':removed.length+' tasks archived for this day');setModal(null);}} clearScopeLabel={fullDateLabel(focusDate).text} clearCount={tasks.filter(t=>onDay(t,dayKey(focusDate))).length} onOpenArchive={()=>setModal({type:'habitArchive'})} archiveCount={habitArchive.length+taskArchive.length} onPhotoSave={(url)=>{const updated={...profile,photo:url};setProfile(updated);const now=Date.now();lastSaveAt.current=now;const ts=new Date(now).toISOString();const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile:updated,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};localStorage.setItem(LS_KEY,JSON.stringify(blob));if(!SANDBOX)sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});showToast('Profile photo synced ✓');}} onClose={()=>setModal(null)} onLogout={logout}/>
       )}
       {modal?.type==='habits'&&(
         <HabitManager habits={habits} onAdd={(name,icon)=>setHabits(hs=>[...hs,{id:uid(),name,icon:icon||'check'}])} onRemove={(id)=>{const h=habits.find(x=>x.id===id);setHabits(hs=>hs.filter(x=>x.id!==id));if(h){setHabitArchive(a=>[{...h,archivedAt:Date.now()},...a.filter(x=>x.id!==id)]);showToast('Habit archived',{label:'Undo',fn:()=>{setHabitArchive(a=>a.filter(x=>x.id!==id));setHabits(hs=>hs.some(x=>x.id===id)?hs:[...hs,h]);}});}}} onEdit={(id,patch)=>setHabits(hs=>hs.map(h=>h.id===id?{...h,...patch}:h))} onClose={()=>setModal(null)}/>
