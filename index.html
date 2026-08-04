@@ -2897,7 +2897,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.23.2';
+const HEFT_VERSION='0.23.3';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -4006,6 +4006,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
 if('serviceWorker' in navigator && !new URLSearchParams(location.search).has('sandbox')){
   (function(){
     var pillShown=false;
+    var reg=null;
+    var regAttempts=0;
     function userIsBusy(){
       var a=document.activeElement;
       return !!document.querySelector('.modal-scrim')||(a&&/INPUT|TEXTAREA/.test(a.tagName));
@@ -4022,29 +4024,49 @@ if('serviceWorker' in navigator && !new URLSearchParams(location.search).has('sa
       p.appendChild(dot);p.appendChild(msg);p.appendChild(btn);
       document.body.appendChild(p);
     }
-    window.addEventListener('load',function(){
-      navigator.serviceWorker.register('sw.js').then(function(reg){
-        function watch(nw){
-          if(!nw)return;
-          nw.addEventListener('statechange',function(){
-            if(nw.state==='installed'&&navigator.serviceWorker.controller)showUpdatePill();
-          });
-        }
+    function watch(nw){
+      if(!nw)return;
+      nw.addEventListener('statechange',function(){
+        if(nw.state==='installed'&&navigator.serviceWorker.controller)showUpdatePill();
+      });
+    }
+    // Self-healing registration: a couple of prior devices ended up with ZERO
+    // active registration (silently dropped, or a one-off failed fetch of sw.js
+    // on load) and — since every step below depends on a registration existing —
+    // that device silently lost both offline caching AND this whole update-check
+    // safety net, with nothing ever surfaced. Retry with backoff instead of a
+    // bare catch, and keep verifying a registration truly exists going forward.
+    function register(){
+      regAttempts++;
+      navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(r){
+        reg=r;regAttempts=0;
         watch(reg.installing);
         reg.addEventListener('updatefound',function(){watch(reg.installing);});
-        // Passive checks (browser default) can lag on a long-suspended PWA; actively
-        // re-check whenever the device comes back to foreground, same rhythm as the
-        // app's own data-sync pulls on focus/visibility.
-        function recheck(){
-          reg.update().catch(function(){});
-          // If a pill is already waiting and the user isn't mid-edit, refresh quietly
-          // now that they've returned to the app — never yank the screen mid-typing.
-          if(document.querySelector('.updatepill')&&!userIsBusy())location.reload();
-        }
-        document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')recheck();});
-        window.addEventListener('focus',recheck);
-      }).catch(function(){});
-    });
+      }).catch(function(e){
+        console.warn('[Heft] service worker registration failed (attempt '+regAttempts+'):',e);
+        if(regAttempts<5)setTimeout(register,Math.min(30000,2000*regAttempts));
+      });
+    }
+    // Passive checks (browser default, and HTTP caching of sw.js itself) can lag
+    // on a long-suspended PWA or a Mac tab left open for days; actively re-check
+    // whenever the device comes back to foreground, same rhythm as the app's own
+    // data-sync pulls on focus/visibility — and re-register from scratch if a
+    // registration has gone missing entirely, rather than staying silently stuck.
+    function recheck(){
+      if(!reg){
+        navigator.serviceWorker.getRegistrations().then(function(rs){
+          if(rs.length)reg=rs[0];else register();
+        }).catch(function(){});
+        return;
+      }
+      reg.update().catch(function(){});
+      // If a pill is already waiting and the user isn't mid-edit, refresh quietly
+      // now that they've returned to the app — never yank the screen mid-typing.
+      if(document.querySelector('.updatepill')&&!userIsBusy())location.reload();
+    }
+    window.addEventListener('load',register);
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')recheck();});
+    window.addEventListener('focus',recheck);
   })();
 }
 </script>
