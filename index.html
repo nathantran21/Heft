@@ -699,7 +699,7 @@ body.heft-dragging .rollbanner,body.heft-dragging .fabdock,body.heft-dragging .t
 .subedit__input{order:2;flex:1;min-width:0;border:0;background:transparent;font-size:13px;font-weight:500;color:var(--text);padding:0;}
 .subedit__input:focus{outline:none;border:0;}
 .subedit__row[data-done="true"] .subedit__input{text-decoration:line-through;color:var(--text-faint);}
-.subedit__del{order:3;}
+.subedit__del{order:4;}
 /* pickbtn (date / stage) */
 .pickbtn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;background:var(--bg);border:1px solid var(--border);border-radius:9px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);}
 .pickbtn:hover{border-color:var(--border-strong);}
@@ -1133,6 +1133,48 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),textarea:focus:
   .fabdock{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:max-content;position:fixed;left:auto;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));}
   .fabdock .fab,.fabdock .movepill{width:auto;justify-content:center;font-size:14px;padding:0 20px;min-height:52px;border-radius:999px;box-sizing:border-box;}
 }
+
+/* ══ STEPS — third and final level (Task > Subtask > Step) ══════════════════
+   Steps are visually lighter and smaller than a subtask and sit on a dashed
+   left rule. There is no affordance below this level, by design. */
+.subcard__steps{flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--text-faint);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:2px 7px;line-height:1.5;}
+.subtree__item[data-hassteps="true"]::before{height:calc(var(--gap) + 22px);}
+.subtree__item[data-hassteps="true"]::after{top:22px;}
+.steptree{list-style:none;margin:6px 0 0;padding:0 0 0 14px;display:flex;flex-direction:column;gap:2px;border-left:1.5px dashed var(--border-strong);margin-left:12px;}
+.steprow{display:flex;align-items:center;gap:8px;padding:3px 2px;min-height:24px;}
+.steprow__check{flex:0 0 auto;width:14px;height:14px;border-radius:4px;border:1.5px solid var(--border-strong);background:transparent;color:transparent;display:grid;place-items:center;cursor:pointer;padding:0;transition:background .14s,border-color .14s;}
+.steprow__check[data-done="true"]{background:var(--w-light);border-color:var(--w-light);color:#fff;}
+.steprow__check:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.steprow__name{font-size:11.5px;font-weight:500;color:var(--text-dim);line-height:1.35;}
+.steprow[data-done="true"] .steprow__name{text-decoration:line-through;color:var(--text-faint);}
+.steprow__bullet{flex:0 0 auto;width:14px;height:14px;border-radius:4px;border:1.5px dashed var(--border-strong);}
+
+/* editor-side step rows */
+.subedit__group{display:flex;flex-direction:column;gap:0;}
+.subedit__group[data-dragging="true"]{opacity:.5;}
+.subedit__group[data-over="true"] .subedit__row{outline:2px solid var(--accent);}
+.subedit__rollup{order:3;flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--text-faint);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:2px 7px;}
+.subedit__promote{order:3;width:24px;height:24px;display:grid;place-items:center;border:0;background:transparent;color:var(--text-faint);border-radius:6px;cursor:pointer;padding:0;flex-shrink:0;}
+.subedit__promote:hover{color:var(--accent);background:var(--surface-3);}
+.subedit__promote:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.steplist{display:flex;flex-direction:column;gap:2px;margin:4px 0 2px 18px;padding-left:12px;border-left:1.5px dashed var(--border-strong);}
+.steprow--edit{padding:2px 0;}
+.steprow__input{flex:1;min-width:0;border:0;background:transparent;font-size:11.5px;font-weight:500;color:var(--text-dim);padding:2px 0;font-family:inherit;}
+.steprow__input:focus{outline:none;color:var(--text);}
+.steprow__del{width:20px;height:20px;display:grid;place-items:center;border:0;background:transparent;color:var(--text-faint);border-radius:5px;cursor:pointer;padding:0;flex-shrink:0;opacity:.65;}
+.steprow__del:hover{color:var(--danger);opacity:1;}
+.stepadd{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:3px 9px 3px 6px;border:1px dashed var(--border-strong);border-radius:999px;background:transparent;color:var(--text-faint);font-family:inherit;font-size:10.5px;font-weight:700;letter-spacing:.02em;cursor:pointer;}
+.stepadd:hover{color:var(--accent);border-color:var(--accent);}
+.stepadd:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.stepcap{align-self:flex-start;margin-top:2px;font-size:10.5px;color:var(--text-faint);}
+
+/* promoted / linked indicator */
+.card__link{display:inline-flex;align-items:center;gap:5px;margin-left:28px;margin-top:7px;align-self:flex-start;padding:3px 9px 3px 7px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--text-faint);}
+@media(max-width:479px){
+  .steprow{min-height:32px;}
+  .steprow__check{width:18px;height:18px;}
+  .steprow__name,.steprow__input{font-size:12.5px;}
+}
 </style>
 </head>
 <body>
@@ -1159,6 +1201,12 @@ let CELEBRATE='full'; // 'full' | 'subtle' | 'off' — set from App settings
 
 // ===== CONSTANTS =====
 const STAGES=['todo','doing','done'];
+// Depth is capped at three levels: Task > Subtask > Step. Steps hold no weight,
+// tag, date, stage or notes, and there is deliberately NO affordance or code path
+// that would create a child of a Step.
+const MAX_SUBS=10;
+const MAX_STEPS=6;
+function stepsOf(s){return (s&&Array.isArray(s.steps))?s.steps:[];}
 const STAGE_LABELS={todo:'To Do',doing:'In Progress',done:'Done'};
 const STAGE_ICONS={todo:'circle',doing:'halfcircle',done:'checkcircle'};
 const WEIGHTS=['light','medium','heavy','extra'];
@@ -1243,6 +1291,8 @@ function Icon({name,size=16}){
     case 'dots':return <svg viewBox="0 0 24 24" style={s}><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>;
     case 'chevDown':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M6 9l6 6 6-6"/></svg>;
     case 'plus':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M12 5v14M5 12h14"/></svg>;
+    case 'promote':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M5 4h14"/><path {...p} d="M12 21V8"/><path {...p} d="M6.6 13.4L12 8l5.4 5.4"/></svg>;
+    case 'link':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M10.1 13.9a4.5 4.5 0 0 0 6.4 0l2.7-2.7a4.5 4.5 0 0 0-6.4-6.4l-1.5 1.5"/><path {...p} d="M13.9 10.1a4.5 4.5 0 0 0-6.4 0l-2.7 2.7a4.5 4.5 0 0 0 6.4 6.4l1.5-1.5"/></svg>;
     case 'x':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M6 6l12 12M18 6L6 18"/></svg>;
     case 'trash':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>;
     case 'sort':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M4 7h13M4 12h9M4 17h5"/><path {...p} d="M17 14l3 3 3-3M20 17V8"/></svg>;
@@ -1644,7 +1694,7 @@ function useGripReorder(reorder){
   },[reorder]);
   return [st,gripDown];
 }
-function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubToggle,onSubReorder,onSubDelete,defaultExpanded}){
+function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubToggle,onSubReorder,onSubDelete,onStepToggle,defaultExpanded}){
   const [expanded,setExpanded]=useState(defaultExpanded!==false);
   const [subSt,subGrip]=useGripReorder(onSubReorder);
   const [pendingDelete,setPendingDelete]=useState(null);
@@ -1667,25 +1717,43 @@ function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubTog
           </header>
           {task.notes&&<p className="card__notes">{task.notes}</p>}
           {task.tag&&<span className="card__tag">{task.tag}</span>}
+          {(task.parentId||((task.childIds||[]).length>0))&&(
+            <span className="card__link" role="note" aria-label={task.parentId?'Promoted from another task':'Has '+(task.childIds||[]).length+' promoted task'+((task.childIds||[]).length===1?'':'s')} title={task.parentId?'Promoted out of another task':'Promoted subtask'+((task.childIds||[]).length===1?'':'s')+' live as their own task'+((task.childIds||[]).length===1?'':'s')}>
+              <Icon name="link" size={10}/>{task.parentId?'Promoted':'Linked '+(task.childIds||[]).length}
+            </span>
+          )}
           {(task.subtasks||[]).length>0&&(<button type="button" className="card__subs" data-expanded={expanded?'true':'false'} data-nodrag="true" style={{'--w':`var(--w-${weight})`}} onClick={(e)=>{e.stopPropagation();setExpanded(o=>!o);}}><span style={{display:'inline-flex',transition:'transform .15s',transform:expanded?'rotate(90deg)':'rotate(0deg)'}}><Icon name="chevron" size={12}/></span><Icon name="subtasks" size={13}/><span>{(task.subtasks||[]).filter(s=>s.done).length}/{(task.subtasks||[]).length} subtask{(task.subtasks||[]).length!==1?'s':''}</span></button>)}
           {pendingSubs&&<p className="card__pending"><Icon name="checkcircle" size={12}/>Completed — moves to Done when subtasks finish</p>}
         </div>
       </article>
       {expanded&&(task.subtasks||[]).length>0&&(
         <div className="subtree">
-          {(task.subtasks||[]).map((s,i)=>(
-            <div key={s.id} className="subtree__item" data-subindex={i} data-dragging={subSt&&subSt.from===i?'true':'false'} data-droptarget={subSt&&subSt.over===i&&subSt.from!==i?'true':'false'}>
+          {(task.subtasks||[]).map((s,i)=>{
+            const steps=stepsOf(s);const stepsDone=steps.filter(p=>p.done).length;
+            return(
+            <div key={s.id} className="subtree__item" data-subindex={i} data-hassteps={steps.length>0?'true':'false'} data-dragging={subSt&&subSt.from===i?'true':'false'} data-droptarget={subSt&&subSt.over===i&&subSt.from!==i?'true':'false'}>
               <div className="subcard" data-done={s.done?'true':'false'}
                 style={{'--w':`var(--w-${weight})`}}>
                 <button type="button" className="subcard__check" aria-label={(s.done?'Uncheck subtask: ':'Complete subtask: ')+s.name} data-done={s.done?'true':'false'} onClick={(e)=>{e.stopPropagation();onSubToggle&&onSubToggle(s.id,e);}}>{s.done&&<Icon name="check" size={11}/>}</button>
                 <span className="subcard__name">{s.name}</span>
+                {steps.length>0&&<span className="subcard__steps" aria-label={stepsDone+' of '+steps.length+' steps done'}>{stepsDone}/{steps.length}</span>}
                 <button type="button" className="subcard__trash" title="Delete subtask" onClick={(e)=>{e.stopPropagation();setPendingDelete(s);}}>
                   <Icon name="trash" size={14}/>
                 </button>
                 <span className="subcard__grip" title="Drag to reorder" onPointerDown={(e)=>subGrip(e,i,'.subtree__item')} style={{touchAction:'pan-y',cursor:'grab'}}><Icon name="grip" size={16}/></span>
               </div>
-            </div>
-          ))}
+              {steps.length>0&&(
+                <ul className="steptree" role="list" aria-label={'Steps for '+s.name}>
+                  {steps.map(p=>(
+                    <li key={p.id} className="steprow" data-done={p.done?'true':'false'}>
+                      <button type="button" className="steprow__check" data-done={p.done?'true':'false'} aria-label={(p.done?'Uncheck step: ':'Complete step: ')+p.name} data-nodrag="true" onClick={(e)=>{e.stopPropagation();onStepToggle&&onStepToggle(s.id,p.id);}}>{p.done&&<Icon name="check" size={9}/>}</button>
+                      <span className="steprow__name">{p.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>);
+          })}
         </div>
       )}
     </div>
@@ -1903,7 +1971,8 @@ function Column({stage,tasks,setTasks,dragId,setDragId,sort,setSort,onOpenTask,o
             onPointerDown={onPD?(e)=>onPD(e,t):undefined}
             onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=(cur.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const subs=(x.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);let stage=x.stage;if(x.completed)stage=(subs.length>0&&subs.every(s=>s.done))?'done':'doing';return{...x,subtasks:subs,stage};}));}}
             onSubReorder={(from,to)=>setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const arr=(x.subtasks||[]).slice();if(to<0||to>=arr.length||from===to)return x;const[m]=arr.splice(from,1);arr.splice(to,0,m);return{...x,subtasks:arr};}))}
-            onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}/>
+            onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}
+            onStepToggle={(subId,stepId)=>setTasks(ts=>ts.map(x=>x.id!==t.id?x:{...x,subtasks:(x.subtasks||[]).map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)})}))}/>
         ))}
       </div>
       {list.length>0&&(
@@ -1947,7 +2016,8 @@ function Lane({weight,tasks,setTasks,onOpenTask,onCycle,defaultExpanded}){
             defaultExpanded={defaultExpanded}
             onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=(cur.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const subs=(x.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);let stage=x.stage;if(x.completed)stage=(subs.length>0&&subs.every(s=>s.done))?'done':'doing';return{...x,subtasks:subs,stage};}));}}
             onSubReorder={(from,to)=>setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const arr=(x.subtasks||[]).slice();if(to<0||to>=arr.length||from===to)return x;const[m]=arr.splice(from,1);arr.splice(to,0,m);return{...x,subtasks:arr};}))}
-            onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}/>
+            onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}
+            onStepToggle={(subId,stepId)=>setTasks(ts=>ts.map(x=>x.id!==t.id?x:{...x,subtasks:(x.subtasks||[]).map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)})}))}/>
         ))}
       </div>
     </section>
@@ -1958,7 +2028,7 @@ function WeightView({tasks,setTasks,onOpenTask,onCycle,defaultExpanded}){
 }
 
 // ===== TASK MODAL =====
-function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,onMoveToDate,onSaveAsTemplate}){
+function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,onMoveToDate,onSaveAsTemplate,onPromote}){
   const [confirmDel,setConfirmDel]=useState(false);
   const editing=!!(initial&&initial.id&&initial.name);
   const [name,setName]=useState(initial?.name||'');
@@ -1974,11 +2044,43 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
   const [subtasks,setSubtasks]=useState(initial?.subtasks||[]);
   const [subDraft,setSubDraft]=useState('');
   const subInputRef=useRef(null);
+  const [stepFor,setStepFor]=useState(null); // id of the subtask currently taking a new Step
+  const [stepDraft,setStepDraft]=useState('');
+  const stepInputRef=useRef(null);
   const [tags,setTags]=useState(initTags||[]);
   const [addingTag,setAddingTag]=useState(false);
   const [tagDraft,setTagDraft]=useState('');
   const [subSt2,subGrip2]=useGripReorder(moveSub);
-  function addSub(){const v=subDraft.trim();if(!v)return;if(subtasks.length>=10)return;setSubtasks(arr=>[...arr,{id:uid(),name:v,done:false}]);setSubDraft('');if(subInputRef.current)subInputRef.current.focus();}
+  function addSub(){const v=subDraft.trim();if(!v)return;if(subtasks.length>=MAX_SUBS)return;setSubtasks(arr=>[...arr,{id:uid(),name:v,done:false,steps:[]}]);setSubDraft('');if(subInputRef.current)subInputRef.current.focus();}
+  // ── Steps: the third and final level. Capped at MAX_STEPS, mirroring addSub. ──
+  function addStep(subId){
+    const v=stepDraft.trim();if(!v)return;
+    setSubtasks(arr=>arr.map(s=>{
+      if(s.id!==subId)return s;
+      const cur=stepsOf(s);
+      if(cur.length>=MAX_STEPS)return s;
+      return{...s,steps:[...cur,{id:uid(),name:v,done:false}]};
+    }));
+    setStepDraft('');
+    if(stepInputRef.current)stepInputRef.current.focus();
+  }
+  function toggleStep(subId,stepId){setSubtasks(arr=>arr.map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)}));}
+  function renameStep(subId,stepId,v){setSubtasks(arr=>arr.map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,name:v}:p)}));}
+  function delStep(subId,stepId){setSubtasks(arr=>arr.map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).filter(p=>p.id!==stepId)}));}
+  // Promote a subtask into a real task. Commits the editor's current state minus that
+  // subtask, then hands both halves to the board so the move is a single undo-able step.
+  function promoteSub(s){
+    if(!onPromote||!editing)return;
+    const remaining=subtasks.filter(x=>x.id!==s.id);
+    const idx=subtasks.findIndex(x=>x.id===s.id);
+    const completed=stage==='done';
+    const allDone=remaining.length===0||remaining.every(x=>x.done);
+    const finalStage=completed?(allDone?'done':'doing'):stage;
+    onPromote({
+      parent:{id:initial.id,seq:initial.seq||Date.now(),date:date||todayKeyNow(),name:name.trim()||initial.name,weight,stage:finalStage,completed,tag,notes:notes.trim(),subtasks:remaining},
+      sub:s,index:idx,tags
+    });
+  }
   function commitTag(){const v=tagDraft.trim();if(v){setTags(t=>t.includes(v)?t:[...t,v]);setTag(v);}setTagDraft('');setAddingTag(false);}
   const [confirmTagDel,setConfirmTagDel]=useState(null);
   function dropTag(t){setTags(ls=>ls.filter(x=>x!==t));if(tag===t)setTag('');setConfirmTagDel(null);}
@@ -2014,19 +2116,51 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
             <span className="field__lbl">Subtasks{subtasks.length?` (${subDone}/${subtasks.length})`:''}</span>
             {subtasks.length>0&&(
               <div className="subedit">
-                {subtasks.map((s,i)=>(
-                  <div className="subedit__row" key={s.id} data-subindex={i} data-done={s.done?'true':'false'} data-dragging={subSt2&&subSt2.from===i?'true':'false'} data-over={subSt2&&subSt2.over===i&&subSt2.from!==i?'true':'false'}>
-                    <span className="subedit__grip" onPointerDown={(e)=>subGrip2(e,i,'.subedit__row')} style={{touchAction:'pan-y',cursor:'grab'}}><Icon name="grip" size={15}/></span>
-                    <button type="button" className="subedit__check" data-done={s.done?'true':'false'} onClick={()=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,done:!x.done}:x))}><Icon name="check" size={11}/></button>
-                    <input className="subedit__input" value={s.name} onChange={(e)=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,name:e.target.value}:x))}/>
-                    <button type="button" className="subedit__del" onClick={()=>setSubtasks(arr=>arr.filter(x=>x.id!==s.id))}><Icon name="x" size={14}/></button>
-                  </div>
-                ))}
+                {subtasks.map((s,i)=>{
+                  const steps=stepsOf(s);const sd=steps.filter(p=>p.done).length;const atCap=steps.length>=MAX_STEPS;
+                  return(
+                  <div className="subedit__group" key={s.id} data-subindex={i} data-dragging={subSt2&&subSt2.from===i?'true':'false'} data-over={subSt2&&subSt2.over===i&&subSt2.from!==i?'true':'false'}>
+                    <div className="subedit__row" data-done={s.done?'true':'false'}>
+                      <span className="subedit__grip" onPointerDown={(e)=>subGrip2(e,i,'.subedit__group')} style={{touchAction:'pan-y',cursor:'grab'}}><Icon name="grip" size={15}/></span>
+                      <button type="button" className="subedit__check" data-done={s.done?'true':'false'} aria-label={(s.done?'Uncheck subtask: ':'Complete subtask: ')+s.name} onClick={()=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,done:!x.done}:x))}><Icon name="check" size={11}/></button>
+                      <input className="subedit__input" aria-label="Subtask name" value={s.name} onChange={(e)=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,name:e.target.value}:x))}/>
+                      {steps.length>0&&<span className="subedit__rollup" aria-label={sd+' of '+steps.length+' steps done'} title="Steps done">{sd}/{steps.length}</span>}
+                      {editing&&onPromote&&<button type="button" className="subedit__promote" aria-label="Promote to its own task" title="Promote to its own task" onClick={()=>promoteSub(s)}><Icon name="promote" size={14}/></button>}
+                      <button type="button" className="subedit__del" aria-label={'Delete subtask: '+s.name} onClick={()=>setSubtasks(arr=>arr.filter(x=>x.id!==s.id))}><Icon name="x" size={14}/></button>
+                    </div>
+                    {(steps.length>0||stepFor===s.id||!atCap)&&(
+                      <div className="steplist">
+                        {steps.map(p=>(
+                          <div className="steprow steprow--edit" key={p.id} data-done={p.done?'true':'false'}>
+                            <button type="button" className="steprow__check" data-done={p.done?'true':'false'} aria-label={(p.done?'Uncheck step: ':'Complete step: ')+p.name} onClick={()=>toggleStep(s.id,p.id)}><Icon name="check" size={9}/></button>
+                            <input className="steprow__input" aria-label="Step name" value={p.name} onChange={(e)=>renameStep(s.id,p.id,e.target.value)}/>
+                            <button type="button" className="steprow__del" aria-label={'Delete step: '+p.name} onClick={()=>delStep(s.id,p.id)}><Icon name="x" size={12}/></button>
+                          </div>
+                        ))}
+                        {stepFor===s.id&&!atCap&&(
+                          <div className="steprow steprow--edit">
+                            <span className="steprow__bullet" aria-hidden="true"/>
+                            <input ref={stepInputRef} className="steprow__input" autoFocus aria-label="New step" placeholder="Step…" value={stepDraft}
+                              onChange={(e)=>setStepDraft(e.target.value)}
+                              onBlur={()=>{if(stepDraft.trim())addStep(s.id);setStepFor(null);setStepDraft('');}}
+                              onKeyDown={(e)=>{
+                                if(e.key==='Enter'){e.preventDefault();addStep(s.id);}
+                                if(e.key==='Escape'){e.preventDefault();e.stopPropagation();setStepDraft('');setStepFor(null);}
+                              }}/>
+                          </div>
+                        )}
+                        {atCap
+                          ?<span className="stepcap">Maximum {MAX_STEPS} steps</span>
+                          :stepFor!==s.id&&<button type="button" className="stepadd" onClick={()=>{setStepDraft('');setStepFor(s.id);}}><Icon name="plus" size={11}/>Step</button>}
+                      </div>
+                    )}
+                  </div>);
+                })}
               </div>
             )}
             <div className="subedit__add">
-              <input ref={subInputRef} className="input" value={subDraft} placeholder={subtasks.length>=10?'Maximum 10 subtasks':'Add a subtask…'} disabled={subtasks.length>=10} onChange={(e)=>setSubDraft(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addSub();}}}/>
-              <button type="button" className="btn btn--ghost" onClick={addSub} disabled={!subDraft.trim()||subtasks.length>=10}><Icon name="plus" size={15}/>Add</button>
+              <input ref={subInputRef} className="input" aria-label="New subtask" value={subDraft} placeholder={subtasks.length>=MAX_SUBS?'Maximum '+MAX_SUBS+' subtasks':'Add a subtask…'} disabled={subtasks.length>=MAX_SUBS} onChange={(e)=>setSubDraft(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addSub();}}}/>
+              <button type="button" className="btn btn--ghost" onClick={addSub} disabled={!subDraft.trim()||subtasks.length>=MAX_SUBS}><Icon name="plus" size={15}/>Add</button>
             </div>
           </div>
           <div className="field">
@@ -2477,7 +2611,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.19.4';
+const HEFT_VERSION='0.20.0';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -2835,6 +2969,7 @@ function App({session}){
   async function logout(){if(SANDBOX){setModal(null);return;}await sb.auth.signOut();setModal(null);}
 
   const undoRef=useRef(null);
+  const promoteRef=useRef(null); // snapshot for undoing a Promote
   const dayCompleteFor=useRef(null); // day-key the day-complete moment already fired for
   function showToast(msg,action=null){
     if(toastTimer.current)clearTimeout(toastTimer.current);
@@ -2957,6 +3092,41 @@ function App({session}){
 
   // Single batched mutation — the whole sweep is one undo-able state update.
   function moveDayBulk(ids,key){setTasks(ts=>ts.map(x=>ids.includes(x.id)?{...x,date:key}:x));}
+
+  // ===== Promote: a subtask becomes its own task =====
+  // The parent is saved with the subtask removed and the new task is created in the
+  // same state update, so Undo restores both halves exactly as they were.
+  function promoteSubtask({parent,sub,index,tags:modalTags}){
+    const before=tasks.find(t=>t.id===parent.id)||null;
+    const child={
+      id:uid(),seq:Date.now(),
+      date:parent.date, // Phase 2 sends this to Backlog (date=null); until then it stays on the parent's day
+      stage:'todo',name:sub.name,weight:'light',tag:parent.tag||'',
+      subtasks:stepsOf(sub).map(p=>({id:uid(),name:p.name,done:!!p.done,steps:[]})),
+      notes:'',completed:false,parentId:parent.id,childIds:[]
+    };
+    setTasks(ts=>{
+      const has=ts.some(x=>x.id===parent.id);
+      const next=has
+        ?ts.map(x=>x.id===parent.id?{...x,...parent,childIds:[...(x.childIds||[]),child.id]}:x)
+        :[...ts,{...parent,childIds:[child.id]}];
+      return[...next,child];
+    });
+    if(modalTags)setTags(modalTags);
+    setModal(null);
+    promoteRef.current={before,childId:child.id,parentId:parent.id};
+    showToast('Promoted “'+sub.name+'” to its own task',{label:'Undo',fn:()=>{
+      const u=promoteRef.current;if(!u)return;
+      setTasks(ts=>{
+        let next=ts.filter(t=>t.id!==u.childId);
+        if(u.before)next=next.map(t=>t.id===u.before.id?u.before:t);
+        else next=next.filter(t=>t.id!==u.parentId);
+        return next;
+      });
+      promoteRef.current=null;
+      showToast('Promote undone');
+    }});
+  }
 
   function moveUnfinished(){
     if(unfinished.length===0)return;
@@ -3202,10 +3372,31 @@ function App({session}){
             else showToast(modal.data?.name?'Task saved':'Task added');
             setModal(null);
           }}
-          onDelete={(id)=>{const del=tasks.find(t=>t.id===id);setTasks(ts=>ts.filter(t=>t.id!==id));if(del)setTaskArchive(a=>[{...del,archivedAt:Date.now()},...a.filter(x=>x.id!==id)]);setModal(null);undoRef.current=del;showToast('Task archived',{label:'Undo',fn:()=>{const d=undoRef.current;if(d){setTaskArchive(a=>a.filter(x=>x.id!==d.id));setTasks(ts=>ts.some(x=>x.id===d.id)?ts:[...ts,d]);undoRef.current=null;showToast('Task restored ✓');}}}); }}
-          onDuplicate={(t)=>{const copy={...t,id:uid(),seq:Date.now(),name:t.name+' (copy)',completed:false,stage:t.stage==='done'?'todo':t.stage,subtasks:(t.subtasks||[]).map(s=>({id:uid(),name:s.name,done:false}))};setTasks(ts=>[...ts,copy]);showToast('Task duplicated');setModal(null);}}
+          onDelete={(id)=>{
+            const del=tasks.find(t=>t.id===id);
+            // A promoted task must never leave a dangling link on its parent.
+            const linked=tasks.filter(t=>(t.childIds||[]).indexOf(id)>=0).map(t=>t.id);
+            setTasks(ts=>ts.filter(t=>t.id!==id).map(t=>(t.childIds||[]).indexOf(id)>=0?{...t,childIds:t.childIds.filter(c=>c!==id)}:t));
+            if(del)setTaskArchive(a=>[{...del,archivedAt:Date.now()},...a.filter(x=>x.id!==id)]);
+            setModal(null);
+            undoRef.current={task:del,linked};
+            showToast('Task archived',{label:'Undo',fn:()=>{
+              const u=undoRef.current;const d=u&&u.task;
+              if(d){
+                setTaskArchive(a=>a.filter(x=>x.id!==d.id));
+                setTasks(ts=>{
+                  let next=ts.some(x=>x.id===d.id)?ts:[...ts,d];
+                  if(u.linked&&u.linked.length)next=next.map(t=>u.linked.indexOf(t.id)>=0?{...t,childIds:[...(t.childIds||[]).filter(c=>c!==d.id),d.id]}:t);
+                  return next;
+                });
+                undoRef.current=null;showToast('Task restored ✓');
+              }
+            }});
+          }}
+          onDuplicate={(t)=>{const copy={...t,id:uid(),seq:Date.now(),name:t.name+' (copy)',completed:false,stage:t.stage==='done'?'todo':t.stage,subtasks:(t.subtasks||[]).map(s=>({id:uid(),name:s.name,done:false,steps:stepsOf(s).map(p=>({id:uid(),name:p.name,done:false}))})),parentId:null,childIds:[]};setTasks(ts=>[...ts,copy]);showToast('Task duplicated');setModal(null);}}
           onSaveAsTemplate={(data)=>setSavingTemplate(data)}
           onMoveToDate={(id,dk)=>{setTasks(ts=>ts.map(t=>t.id===id?{...t,date:dk}:t));setFocusDate(new Date(dk+'T00:00:00'));showToast('Moved to '+new Date(dk+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}));setModal(null);}}
+          onPromote={promoteSubtask}
           onClose={()=>setModal(null)}/>
       )}
       {modal?.type==='settings'&&(
