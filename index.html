@@ -1211,6 +1211,89 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),textarea:focus:
 .swap__opt:hover .swap__opt__go{color:var(--accent);}
 .swap__foot{display:flex;gap:8px;padding:14px 16px max(16px,env(safe-area-inset-bottom));}
 .swap__foot .btn{flex:1;justify-content:center;}
+
+/* ============================================================
+   HEFT V4 — MOTION & CRAFT LAYER
+   Interaction choreography: FLIP board glides (JS/WAAPI), a
+   sequenced completion moment (pop → tick draw → ink
+   strikethrough), a sliding view-toggle indicator, counter
+   ticks, page-turn day navigation, and true exit animations
+   for modals and toasts. Calm, paper-real, reduced-motion safe.
+   ============================================================ */
+
+/* -- view toggle: one pill that slides, instead of background swaps -- */
+.apptop__viewtoggle{position:relative;display:grid;grid-template-columns:1fr 1fr;}
+.viewtoggle__ind{position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);background:var(--surface);border-radius:7px;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:transform .32s cubic-bezier(.26,1.25,.48,1);will-change:transform;}
+.apptop__viewtoggle[data-active="weight"] .viewtoggle__ind{transform:translateX(100%);}
+.apptop__viewtoggle .viewtoggle__opt{position:relative;z-index:1;}
+.apptop__viewtoggle .viewtoggle__opt[data-on="true"]{background:transparent;box-shadow:none;}
+
+/* -- checkbox: the tick draws itself in like ink -- */
+.check__tick svg path,.subcard__check svg path,.steprow__check svg path,.subedit__check svg path,.habit__daydot svg path{stroke-dasharray:21;stroke-dashoffset:0;}
+.check[data-stage="done"] .check__tick svg path{animation:tickDraw .3s cubic-bezier(.22,1,.36,1) .06s backwards;}
+.subcard__check[data-done="true"] svg path,.steprow__check[data-done="true"] svg path,.subedit__check[data-done="true"] svg path{animation:tickDraw .26s cubic-bezier(.22,1,.36,1) .04s backwards;}
+.habit__day[data-done="true"] .habit__daydot svg path{animation:tickDraw .3s cubic-bezier(.22,1,.36,1) .05s backwards;}
+@keyframes tickDraw{from{stroke-dashoffset:21;}to{stroke-dashoffset:0;}}
+
+/* -- completion: the strikethrough inks in instead of snapping on -- */
+.card__name{text-decoration:line-through;text-decoration-color:transparent;text-decoration-thickness:1.5px;transition:text-decoration-color .38s ease .12s,color .3s ease .1s;}
+.card[data-done="true"] .card__name{text-decoration-color:color-mix(in srgb,var(--text-faint) 88%,transparent);color:var(--text-dim);}
+.subcard__name{text-decoration:line-through;text-decoration-color:transparent;text-decoration-thickness:1.2px;transition:text-decoration-color .32s ease .1s,color .26s ease .08s;}
+.subcard[data-done="true"] .subcard__name{text-decoration-color:var(--text-faint);}
+.steprow__name{text-decoration:line-through;text-decoration-color:transparent;transition:text-decoration-color .3s ease .08s,color .24s ease;}
+.steprow[data-done="true"] .steprow__name{text-decoration-color:var(--text-faint);}
+.card{transition:border-color .18s ease,box-shadow .22s ease,transform .22s cubic-bezier(.34,1.56,.64,1),opacity .45s ease;}
+
+/* -- counters: value changes tick up like a mechanical counter -- */
+.counttick{display:inline-block;animation:countTick .32s cubic-bezier(.22,1,.36,1);}
+@keyframes countTick{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
+
+/* -- day navigation: the page turns toward where you're heading -- */
+.board__zoom[data-dir="next"]{animation:pageNext .34s cubic-bezier(.22,1,.36,1) both;}
+.board__zoom[data-dir="prev"]{animation:pagePrev .34s cubic-bezier(.22,1,.36,1) both;}
+@keyframes pageNext{from{opacity:0;transform:translateX(18px);}to{opacity:1;transform:none;}}
+@keyframes pagePrev{from{opacity:0;transform:translateX(-18px);}to{opacity:1;transform:none;}}
+
+/* -- drag: the ghost lifts off the board when picked up -- */
+.card-drag-ghost{animation:ghostLift .16s cubic-bezier(.34,1.56,.64,1);}
+@keyframes ghostLift{from{transform:rotate(0deg) scale(.94);opacity:.5;}to{transform:rotate(2deg) scale(1.05);opacity:.92;}}
+
+/* -- modal + toast exits: nothing vanishes, it leaves -- */
+.modal-scrim[data-closing="true"]{animation:scrimOut .18s ease both;pointer-events:none;}
+.modal-scrim[data-closing="true"] .modal__panel{animation:modalOut .18s cubic-bezier(.4,0,1,1) both;}
+@keyframes scrimOut{to{opacity:0;}}
+@keyframes modalOut{to{opacity:0;transform:translateY(12px) scale(.985);}}
+.toast[data-leaving="true"]{animation:toastOut .22s ease both;}
+@keyframes toastOut{to{opacity:0;transform:translate(-50%,6px);}}
+
+/* -- subtask thread unfolds -- */
+.subtree{animation:fadeUp .26s cubic-bezier(.22,1,.36,1);}
+.subtree__item{animation:fadeUp .3s cubic-bezier(.22,1,.36,1) backwards;}
+.subtree__item:nth-child(1){animation-delay:.02s;}
+.subtree__item:nth-child(2){animation-delay:.05s;}
+.subtree__item:nth-child(3){animation-delay:.08s;}
+.subtree__item:nth-child(n+4){animation-delay:.1s;}
+
+/* -- small truths -- */
+.col__empty,.col__empty-cta{animation:fadeUp .3s ease .05s backwards;}
+.lane__fill{transition:width .55s cubic-bezier(.22,1,.36,1);}
+.col__meter__fill{transition:width .45s cubic-bezier(.22,1,.36,1),background-color .3s ease;}
+.fab svg{transition:transform .32s cubic-bezier(.34,1.56,.64,1);}
+.fab:hover svg{transform:rotate(90deg);}
+
+/* -- arrival: login choreography -- */
+.login__hero{animation:fadeUp .5s cubic-bezier(.22,1,.36,1) .05s backwards;}
+.login__card{animation:fadeUp .5s cubic-bezier(.22,1,.36,1) .16s backwards;}
+.login__foot{animation:fadeUp .5s cubic-bezier(.22,1,.36,1) .3s backwards;}
+
+/* -- reduced motion: structure over spectacle -- */
+@media(prefers-reduced-motion:reduce){
+  .viewtoggle__ind,.lane__fill,.col__meter__fill,.fab svg{transition:none;}
+  .card__name,.subcard__name,.steprow__name{transition:none;}
+  .check[data-stage="done"] .check__tick svg path,.subcard__check[data-done="true"] svg path,.steprow__check[data-done="true"] svg path,.subedit__check[data-done="true"] svg path,.habit__day[data-done="true"] .habit__daydot svg path{animation:none;}
+  .counttick,.board__zoom[data-dir="next"],.board__zoom[data-dir="prev"],.card-drag-ghost,.subtree,.subtree__item,.col__empty,.col__empty-cta,.login__hero,.login__card,.login__foot{animation:none!important;}
+  .modal-scrim[data-closing="true"],.modal-scrim[data-closing="true"] .modal__panel,.toast[data-leaving="true"]{animation:none!important;}
+}
 </style>
 </head>
 <body>
@@ -1220,7 +1303,7 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),textarea:focus:
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
 <script type="text/babel">
-const { useState, useEffect, useRef, useMemo, useCallback } = React;
+const { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } = React;
 
 // ===== SUPABASE =====
 const SUPABASE_URL = 'https://ezmqnbfpnulsgcemmiia.supabase.co';
@@ -1342,6 +1425,56 @@ function fireDayComplete(){
     setTimeout(()=>v.classList.add('out'),1500);
     setTimeout(()=>v.remove(),2050);
   }
+}
+
+// ── Motion & Craft helpers (v0.23.0) ────────────────────────────────────────
+// True exit for scrim modals: mark the topmost scrim as closing, let the CSS
+// exit keyframes play, then run the real close. Falls back to an instant close
+// under reduced motion or if no scrim is mounted.
+function closeModalAnimated(cb){
+  try{
+    if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches){cb();return;}
+    const scrims=document.querySelectorAll('.modal-scrim');
+    const scrim=scrims.length?scrims[scrims.length-1]:null;
+    if(!scrim){cb();return;}
+    if(scrim.getAttribute('data-closing')==='true')return;
+    scrim.setAttribute('data-closing','true');
+    setTimeout(cb,200);
+  }catch(_){cb();}
+}
+// FLIP glide for the board. Cards carry data-flip-id; after any commit that
+// moves a card (checkbox cycle, drag drop, sort, carry-over, view morph) the
+// card glides from its previous rect to its new one instead of teleporting.
+// WAAPI keeps the CSS untouched; reduced-motion users just see the reposition.
+function useBoardFlip(resetKey){
+  const rects=useRef(new Map());
+  const keyRef=useRef(resetKey);
+  useLayoutEffect(()=>{
+    if(keyRef.current!==resetKey){keyRef.current=resetKey;rects.current=new Map();}
+    const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const els=document.querySelectorAll('.board [data-flip-id]');
+    const next=new Map();
+    els.forEach(el=>{
+      const id=el.getAttribute('data-flip-id');
+      const r=el.getBoundingClientRect();
+      next.set(id,r);
+      if(reduce||!el.animate)return;
+      const old=rects.current.get(id);
+      if(!old)return;
+      const dx=old.left-r.left,dy=old.top-r.top;
+      if(Math.abs(dx)<3&&Math.abs(dy)<3)return;
+      if(document.body.classList.contains('heft-dragging'))return;
+      el.style.animation='none'; // a moved card glides; it never re-runs its entrance
+      try{
+        el.animate(
+          [{transform:'translate('+dx+'px,'+dy+'px) scale(1.012)',boxShadow:'0 12px 26px -14px rgba(60,44,28,.32)'},
+           {transform:'translate(0,0) scale(1)',boxShadow:'0 1px 0 rgba(0,0,0,0)'}],
+          {duration:Math.min(440,250+Math.hypot(dx,dy)*0.2),easing:'cubic-bezier(.22,1,.36,1)'}
+        );
+      }catch(_){}
+    });
+    rects.current=next;
+  });
 }
 
 // ===== HELPERS =====
@@ -1612,7 +1745,7 @@ function HabitTracker({habits,focusDate,habitLog,toggleHabit,onManageHabits}){
             <div className="habit" key={h.id}>
               <div className="habit__top">
                 <span className="habit__name"><HabitIcon icon={h.icon} size={14}/>{h.name}</span>
-                <span className="habit__streak" data-active={streak>0?'true':'false'}>{streak>0?(<React.Fragment><span className="habit__streaknum">{streak}</span><span className="habit__streaklbl">day{streak===1?'':' streak'}</span></React.Fragment>):(<span className="habit__streaklbl habit__streaklbl--start">Start today</span>)}</span>
+                <span className="habit__streak" data-active={streak>0?'true':'false'}>{streak>0?(<React.Fragment><span className="habit__streaknum counttick" key={streak}>{streak}</span><span className="habit__streaklbl">day{streak===1?'':' streak'}</span></React.Fragment>):(<span className="habit__streaklbl habit__streaklbl--start">Start today</span>)}</span>
               </div>
               <div className="habit__week">
                 {week.map(d=>{const k=dayKey(d);const future=k>todayKey;return<button key={k} className="habit__day" aria-label={h.name+', '+d.toLocaleDateString(undefined,{weekday:'long'})+(set.has(k)?' — done':' — not done')} data-done={set.has(k)?'true':'false'} data-sel={k===selKey?'true':'false'} data-future={future?'true':'false'} disabled={future} onClick={(e)=>{const willComplete=!set.has(k);if(willComplete&&k===todayKey){const dot=e.currentTarget.querySelector('.habit__daydot');const r=(dot||e.currentTarget).getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2);}toggleHabit(h.id,k);}}><span className="habit__daylbl">{WEEKDAYS[d.getDay()][0]}</span><span className="habit__daydot"><Icon name="check" size={9}/></span></button>;})}
@@ -1773,7 +1906,7 @@ function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubTog
   const pendingSubs=done&&task.stage!=='done'&&(task.subtasks||[]).some(s=>!s.done);
   return(<React.Fragment>
     <div className="taskgroup">
-      <article className="card" data-weight={weight} data-done={done?'true':'false'}
+      <article className="card" data-flip-id={task.id} data-weight={weight} data-done={done?'true':'false'}
         tabIndex={0} role="button" aria-label={task.name+' — '+(weight!=='none'?weight+' weight, ':'')+(done?'done':STAGE_LABELS[task.stage]||task.stage)}
         style={{'--w':`var(--w-${weight})`,'touchAction':draggable?'pan-y':'auto'}}
         onPointerDown={onPointerDown}
@@ -2034,7 +2167,7 @@ function Column({stage,tasks,items,setTasks,dragId,setDragId,sort,setSort,onOpen
       <div className="col__head">
         <span className="col__icon" data-stage={stage}><Icon name={STAGE_ICONS[stage]} size={15}/></span>
         <span className="col__name">{STAGE_LABELS[stage]}</span>
-        <span className="col__count" data-wip={lim?level:undefined} aria-label={lim?(list.length+' of '+lim+', work in progress limit'):(list.length+' tasks')}>{lim?list.length+'/'+lim:list.length}</span>
+        <span className="col__count" data-wip={lim?level:undefined} aria-label={lim?(list.length+' of '+lim+', work in progress limit'):(list.length+' tasks')}><span className="counttick" key={lim?list.length+'/'+lim:''+list.length}>{lim?list.length+'/'+lim:list.length}</span></span>
         <span className="col__spacer"/>
         <button className="col__add" title={isBack?'Add to Backlog':'Add task'} aria-label={isBack?'Add to Backlog':'Add task to '+STAGE_LABELS[stage]} onClick={()=>onAddTask(stage)}><Icon name="plus" size={16}/></button>
         {!isBack&&<ColSort sort={sort} setSort={setSort}/>}
@@ -2105,7 +2238,7 @@ function Lane({weight,tasks,setTasks,onOpenTask,onCycle,defaultExpanded}){
     <section className="lane" data-weight={weight} style={wVar}>
       <div className="lane__head">
         <div className="lane__titlewrap"><span className="lane__chip"><span className="lane__dot"/>{WEIGHT_LABELS[weight]}</span><span className="lane__desc">{WEIGHT_DESC[weight]}</span></div>
-        <span className="lane__count">{total}</span>
+        <span className="lane__count"><span className="counttick" key={total}>{total}</span></span>
       </div>
       <div className="lane__bar"><div className="lane__fill" style={{width:donePct+'%'}}/></div>
       <div className="lane__legend"><span>{counts.todo} to do</span><span>·</span><span>{counts.doing} doing</span><span>·</span><span>{counts.done} done</span></div>
@@ -2756,7 +2889,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.22.0';
+const HEFT_VERSION='0.23.0';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -2913,7 +3046,16 @@ function App({session}){
   const [habitArchive,setHabitArchive]=useState(local?.habitArchive||[]); // deleted habits, recoverable from Settings → Habit archive
   const [taskArchive,setTaskArchive]=useState(local?.taskArchive||[]); // deleted tasks (single + day-bulk), recoverable from the same archive
   const [tags,setTags]=useState(local?.tags||INITIAL_TAGS);
-  const [focusDate,setFocusDate]=useState(todayDate);
+  const [focusDate,setFocusDateRaw]=useState(todayDate);
+  // Page-turn direction for day navigation. Captured per instance so the
+  // board wrapper can slide in from the side the user is heading toward.
+  const dayNavDir=useRef(0);
+  const focusDateRef=useRef(null);
+  const setFocusDate=useCallback((d)=>{
+    const prev=focusDateRef.current;
+    if(prev instanceof Date&&d instanceof Date){dayNavDir.current=d>prev?1:(d<prev?-1:0);}
+    setFocusDateRaw(d);
+  },[]);
   const [sidebarOpen,setSidebarOpen]=useState(()=>window.innerWidth>=768); // closed by default on mobile
   const [activeWeights,setActiveWeights]=useState([]);
   const [activeTag,setActiveTag]=useState(null);
@@ -3117,12 +3259,17 @@ function App({session}){
   async function logout(){if(SANDBOX){setModal(null);return;}await sb.auth.signOut();setModal(null);}
 
   const undoRef=useRef(null);
+  const toastTimer2=useRef(null);
   const promoteRef=useRef(null); // snapshot for undoing a Promote
   const dayCompleteFor=useRef(null); // day-key the day-complete moment already fired for
   function showToast(msg,action=null){
     if(toastTimer.current)clearTimeout(toastTimer.current);
+    if(toastTimer2.current)clearTimeout(toastTimer2.current);
     setToast({msg,action});
-    toastTimer.current=setTimeout(()=>{setToast(null);undoRef.current=null;},action?4500:2600);
+    toastTimer.current=setTimeout(()=>{
+      setToast(t=>t?{...t,leaving:true}:t);
+      toastTimer2.current=setTimeout(()=>{setToast(null);undoRef.current=null;},230);
+    },action?4500:2600);
   }
   function toggleWeight(w){setActiveWeights(cur=>cur.includes(w)?cur.filter(x=>x!==w):[...cur,w]);}
   function toggleHabit(hId,key){setHabitLog(log=>{const arr=log[hId]||[];return{...log,[hId]:arr.includes(key)?arr.filter(k=>k!==key):[...arr,key]};});}
@@ -3212,6 +3359,11 @@ function App({session}){
   // Keep the drag engine reading live board state without re-arming on every render.
   const boardRef=useRef(null);
   boardRef.current={focusKey:dayKey(focusDate),admit};
+  focusDateRef.current=focusDate;
+  // FLIP glide: reset the rect map when the day or zoom changes so page turns
+  // never glide across contexts. View is deliberately part of the glide — cards
+  // morph between Board and Weight view like shared elements.
+  useBoardFlip(dayKey(focusDate)+'|z'+zoom);
 
   function sendToBacklog(id){
     const t=tasks.find(x=>x.id===id);const prevDate=t?t.date:null;
@@ -3438,7 +3590,8 @@ function App({session}){
           <DayProgress done={dayStats.done} total={dayStats.total}/>
         </div>
         <div className="apptop__rightZone">
-          <div className="apptop__viewtoggle" role="group" aria-label="Board view">
+          <div className="apptop__viewtoggle" role="group" aria-label="Board view" data-active={view}>
+            <span className="viewtoggle__ind" aria-hidden="true"/>
             <button className="viewtoggle__opt" data-on={view==='kanban'?'true':'false'} onClick={()=>setView('kanban')}>Board</button>
             <button className="viewtoggle__opt" data-on={view==='weight'?'true':'false'} onClick={()=>setView('weight')}>Weight</button>
           </div>
@@ -3494,7 +3647,7 @@ function App({session}){
         {sidebarOpen&&isMobile&&<div className="drawer-scrim" onClick={()=>setSidebarOpen(false)}/>}
 
         <div className="board">
-        <div className="board__zoom" style={{zoom:zoom}}>
+        <div className="board__zoom" key={dayKey(focusDate)} data-dir={dayNavDir.current===1?'next':dayNavDir.current===-1?'prev':undefined} style={{zoom:zoom}}>
           <FilterChips weights={activeWeights} tag={activeTag} query={query.trim()} clearWeight={toggleWeight} clearTag={()=>setActiveTag(null)} clearQuery={()=>setQuery('')}/>
           {view==='kanban'
             ?<KanbanView tasks={filteredTasks} backlog={backlogTasks} setTasks={setTasks} sort={sort} setSort={setSort} wipLimits={wipLimits} boardRef={boardRef} onOpenTask={(t)=>setModal({type:'task',data:t})} onAddTask={(stage)=>setModal({type:'task',data:stage==='backlog'?{stage:'todo',date:null}:{stage,date:dayKey(focusDate)}})} onCycle={cycleStage} defaultExpanded={subExpandDefault} onColScroll={logColumnScrolled}/>
@@ -3575,14 +3728,14 @@ function App({session}){
         </div>
 
         {/* Toast */}
-        {toast&&<div className="toast" role="status" style={{display:'flex',alignItems:'center',gap:10}}><span className="toast__msg">{toast.msg}</span>{toast.action&&<button className="toast__action" onClick={()=>{toast.action.fn();setToast(null);}}>{toast.action.label}</button>}</div>}
+        {toast&&<div className="toast" data-leaving={toast.leaving?'true':'false'} role="status" style={{display:'flex',alignItems:'center',gap:10}}><span className="toast__msg">{toast.msg}</span>{toast.action&&<button className="toast__action" onClick={()=>{toast.action.fn();setToast(null);}}>{toast.action.label}</button>}</div>}
 
         {/* WIP swap sheet — a full column asks what comes out, it never blocks */}
         {swap&&(()=>{
           const dk=dayKey(focusDate);
           const inCol=sortTasks(tasks.filter(t=>onDay(t,dk)&&t.stage===swap.stage),sort);
           return(
-          <div className="modal-scrim" onMouseDown={()=>setSwap(null)}>
+          <div className="modal-scrim" onMouseDown={()=>closeModalAnimated(()=>setSwap(null))}>
             <div className="modal__panel modal__panel--swap" role="dialog" aria-modal="true" aria-label={STAGE_LABELS[swap.stage]+' is at its limit'} onMouseDown={(e)=>e.stopPropagation()}>
               <div className="swap__head">
                 <span className="swap__ico"><Icon name="layout" size={20}/></span>
@@ -3600,7 +3753,7 @@ function App({session}){
                 {inCol.length===0&&<div className="col__empty">Nothing to swap out</div>}
               </div>
               <div className="swap__foot">
-                <button type="button" className="btn btn--ghost" onClick={()=>setSwap(null)}>Cancel</button>
+                <button type="button" className="btn btn--ghost" onClick={()=>closeModalAnimated(()=>setSwap(null))}>Cancel</button>
                 <button type="button" className="btn btn--ghost" onClick={overrideSwap}>Go over anyway</button>
               </div>
             </div>
@@ -3609,7 +3762,7 @@ function App({session}){
 
         {/* Carry-over confirm dialog */}
         {carryOpen&&(
-          <div className="modal-scrim" onMouseDown={()=>setCarryOpen(false)}>
+          <div className="modal-scrim" onMouseDown={()=>closeModalAnimated(()=>setCarryOpen(false))}>
             <div className="modal__panel modal__panel--carry" role="dialog" aria-modal="true" aria-label="Carry over unfinished tasks" onMouseDown={(e)=>e.stopPropagation()}>
               <div className="modal__body carrydlg">
                 <span className="carrydlg__ico"><Icon name="carryover" size={24}/></span>
@@ -3617,7 +3770,7 @@ function App({session}){
                 <span className="carrydlg__sub">All <strong>{unfinished.length}</strong> unfinished task{unfinished.length===1?'':'s'} still on <strong>{carryLabel(focusDate)}</strong> will move to <strong>{carryLabel(targetDate)}</strong>. Completed tasks stay put.</span>
               </div>
               <div className="carrydlg__foot">
-                <button type="button" className="btn btn--ghost" onClick={()=>setCarryOpen(false)}>Cancel</button>
+                <button type="button" className="btn btn--ghost" onClick={()=>closeModalAnimated(()=>setCarryOpen(false))}>Cancel</button>
                 <button type="button" className="btn btn--primary" onClick={confirmCarry}><Icon name="carryover" size={15}/>Carry over</button>
               </div>
             </div>
@@ -3674,13 +3827,13 @@ function App({session}){
           onSaveAsTemplate={(data)=>setSavingTemplate(data)}
           onMoveToDate={(id,dk)=>{setTasks(ts=>ts.map(t=>t.id===id?{...t,date:dk}:t));setFocusDate(new Date(dk+'T00:00:00'));showToast('Moved to '+new Date(dk+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}));setModal(null);}}
           onPromote={promoteSubtask}
-          onClose={()=>setModal(null)}/>
+          onClose={()=>closeModalAnimated(()=>setModal(null))}/>
       )}
       {modal?.type==='settings'&&(
-        <SettingsModal profile={profile} userId={session.user.id} dark={dark} setDark={setDark} view={view} setView={setView} typeface={typeface} setTypeface={setTypeface} accent={accent} setAccent={setAccent} celebrate={celebrate} setCelebrate={setCelebrate} zoom={zoom} setZoom={setZoom} subExpandDefault={subExpandDefault} setSubExpandDefault={setSubExpandDefault} rollover={rollover} setRollover={setRollover} wipLimits={wipLimits} setWipLimits={setWipLimits} templatesCount={templates.length} onOpenTemplates={()=>{setModal(null);setShowTemplates(true);}} onSave={setProfile} onClearTasks={()=>{const dk=dayKey(focusDate);const removed=tasks.filter(t=>onDay(t,dk));if(removed.length){const stamp=Date.now();setTaskArchive(a=>[...removed.map(t=>({...t,archivedAt:stamp})),...a.filter(x=>!removed.some(r=>r.id===x.id))]);}setTasks(ts=>ts.filter(t=>!onDay(t,dk)));showToast(removed.length===1?'1 task archived for this day':removed.length+' tasks archived for this day');setModal(null);}} clearScopeLabel={fullDateLabel(focusDate).text} clearCount={tasks.filter(t=>onDay(t,dayKey(focusDate))).length} onOpenArchive={()=>setModal({type:'habitArchive'})} archiveCount={habitArchive.length+taskArchive.length} onPhotoSave={(url)=>{const updated={...profile,photo:url};setProfile(updated);const now=Date.now();lastSaveAt.current=now;const ts=new Date(now).toISOString();const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile:updated,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};localStorage.setItem(LS_KEY,JSON.stringify(blob));if(!SANDBOX)sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});showToast('Profile photo synced ✓');}} onClose={()=>setModal(null)} onLogout={logout}/>
+        <SettingsModal profile={profile} userId={session.user.id} dark={dark} setDark={setDark} view={view} setView={setView} typeface={typeface} setTypeface={setTypeface} accent={accent} setAccent={setAccent} celebrate={celebrate} setCelebrate={setCelebrate} zoom={zoom} setZoom={setZoom} subExpandDefault={subExpandDefault} setSubExpandDefault={setSubExpandDefault} rollover={rollover} setRollover={setRollover} wipLimits={wipLimits} setWipLimits={setWipLimits} templatesCount={templates.length} onOpenTemplates={()=>{setModal(null);setShowTemplates(true);}} onSave={setProfile} onClearTasks={()=>{const dk=dayKey(focusDate);const removed=tasks.filter(t=>onDay(t,dk));if(removed.length){const stamp=Date.now();setTaskArchive(a=>[...removed.map(t=>({...t,archivedAt:stamp})),...a.filter(x=>!removed.some(r=>r.id===x.id))]);}setTasks(ts=>ts.filter(t=>!onDay(t,dk)));showToast(removed.length===1?'1 task archived for this day':removed.length+' tasks archived for this day');setModal(null);}} clearScopeLabel={fullDateLabel(focusDate).text} clearCount={tasks.filter(t=>onDay(t,dayKey(focusDate))).length} onOpenArchive={()=>setModal({type:'habitArchive'})} archiveCount={habitArchive.length+taskArchive.length} onPhotoSave={(url)=>{const updated={...profile,photo:url};setProfile(updated);const now=Date.now();lastSaveAt.current=now;const ts=new Date(now).toISOString();const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile:updated,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};localStorage.setItem(LS_KEY,JSON.stringify(blob));if(!SANDBOX)sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});showToast('Profile photo synced ✓');}} onClose={()=>closeModalAnimated(()=>setModal(null))} onLogout={logout}/>
       )}
       {modal?.type==='habits'&&(
-        <HabitManager habits={habits} onAdd={(name,icon)=>setHabits(hs=>[...hs,{id:uid(),name,icon:icon||'check'}])} onRemove={(id)=>{const h=habits.find(x=>x.id===id);setHabits(hs=>hs.filter(x=>x.id!==id));if(h){setHabitArchive(a=>[{...h,archivedAt:Date.now()},...a.filter(x=>x.id!==id)]);showToast('Habit archived',{label:'Undo',fn:()=>{setHabitArchive(a=>a.filter(x=>x.id!==id));setHabits(hs=>hs.some(x=>x.id===id)?hs:[...hs,h]);}});}}} onEdit={(id,patch)=>setHabits(hs=>hs.map(h=>h.id===id?{...h,...patch}:h))} onClose={()=>setModal(null)}/>
+        <HabitManager habits={habits} onAdd={(name,icon)=>setHabits(hs=>[...hs,{id:uid(),name,icon:icon||'check'}])} onRemove={(id)=>{const h=habits.find(x=>x.id===id);setHabits(hs=>hs.filter(x=>x.id!==id));if(h){setHabitArchive(a=>[{...h,archivedAt:Date.now()},...a.filter(x=>x.id!==id)]);showToast('Habit archived',{label:'Undo',fn:()=>{setHabitArchive(a=>a.filter(x=>x.id!==id));setHabits(hs=>hs.some(x=>x.id===id)?hs:[...hs,h]);}});}}} onEdit={(id,patch)=>setHabits(hs=>hs.map(h=>h.id===id?{...h,...patch}:h))} onClose={()=>closeModalAnimated(()=>setModal(null))}/>
       )}
       {modal?.type==='habitArchive'&&(
         <ArchiveModal taskArchive={taskArchive} habitArchive={habitArchive}
@@ -3689,7 +3842,7 @@ function App({session}){
           onRecoverTasksForDay={(dk)=>{const group=taskArchive.filter(t=>(t.date||'')===dk);if(!group.length)return;setTasks(ts=>{const have=new Set(ts.map(x=>x.id));return[...ts,...group.filter(t=>!have.has(t.id)).map(t=>{const r={...t};delete r.archivedAt;return r;})];});setTaskArchive(a=>a.filter(t=>(t.date||'')!==dk));showToast(group.length===1?'1 task restored':group.length+' tasks restored ✓');}}
           onRecoverHabit={(id)=>{const h=habitArchive.find(x=>x.id===id);if(!h)return;const rest={...h};delete rest.archivedAt;setHabits(hs=>hs.some(x=>x.id===id)?hs:[...hs,rest]);setHabitArchive(a=>a.filter(x=>x.id!==id));showToast('Habit recovered ✓');}}
           onDeleteHabit={(id)=>{setHabitArchive(a=>a.filter(x=>x.id!==id));setHabitLog(log=>{const n={...log};delete n[id];return n;});showToast('Habit permanently deleted');}}
-          onClose={()=>setModal(null)}/>
+          onClose={()=>closeModalAnimated(()=>setModal(null))}/>
       )}
       {savingTemplate&&(
         <SaveTemplateDialog
@@ -3698,7 +3851,7 @@ function App({session}){
           onClose={()=>setSavingTemplate(null)}/>
       )}
       {modal?.type==='tags'&&(
-        <TagManager tags={tags} onAdd={(name)=>setTags(ts=>ts.includes(name)?ts:[...ts,name])} onRemove={(name)=>{setTags(ts=>ts.filter(t=>t!==name));setTasks(ts=>ts.map(t=>t.tag===name?{...t,tag:''}:t));if(activeTag===name)setActiveTag(null);}} onRename={(old,next)=>{setTags(ts=>ts.map(t=>t===old?next:t));setTasks(ts=>ts.map(t=>t.tag===old?{...t,tag:next}:t));if(activeTag===old)setActiveTag(next);}} onClose={()=>setModal(null)}/>
+        <TagManager tags={tags} onAdd={(name)=>setTags(ts=>ts.includes(name)?ts:[...ts,name])} onRemove={(name)=>{setTags(ts=>ts.filter(t=>t!==name));setTasks(ts=>ts.map(t=>t.tag===name?{...t,tag:''}:t));if(activeTag===name)setActiveTag(null);}} onRename={(old,next)=>{setTags(ts=>ts.map(t=>t===old?next:t));setTasks(ts=>ts.map(t=>t.tag===old?{...t,tag:next}:t));if(activeTag===old)setActiveTag(next);}} onClose={()=>closeModalAnimated(()=>setModal(null))}/>
       )}
       {showOnboard&&(
         <Onboarding
