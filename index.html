@@ -1233,6 +1233,28 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const SANDBOX=new URLSearchParams(location.search).has('sandbox');
 const LS_KEY=SANDBOX?'heft.sandbox.v1':'heft.v1';
 const LS_ONBOARD_KEY=SANDBOX?'heft.sandbox.onboarded':'heft.onboarded';
+// ── Usage log ────────────────────────────────────────────────────────────
+// Append-only ring buffer in its own localStorage key. Deliberately NOT part of
+// the synced blob and never written to Supabase — it is a local baseline only.
+const EV_KEY=SANDBOX?'heft.sandbox.events.v1':'heft.events.v1';
+const EV_SNAP_KEY=SANDBOX?'heft.sandbox.events.lastSnap':'heft.events.lastSnap';
+const EV_CAP=5000;
+function readEvents(){try{const a=JSON.parse(localStorage.getItem(EV_KEY)||'[]');return Array.isArray(a)?a:[];}catch(_){return[];}}
+function logEvent(e,meta){
+  try{
+    const arr=readEvents();
+    arr.push({t:Date.now(),e:e,meta:meta||{}});
+    if(arr.length>EV_CAP)arr.splice(0,arr.length-EV_CAP); // drop oldest
+    localStorage.setItem(EV_KEY,JSON.stringify(arr));
+  }catch(_){}
+}
+// column_scrolled is noisy — one per column per session is enough to see the shape.
+const EV_SCROLLED=new Set();
+function logColumnScrolled(stage){
+  if(EV_SCROLLED.has(stage))return;
+  EV_SCROLLED.add(stage);
+  logEvent('column_scrolled',{stage:stage});
+}
 let CELEBRATE='full'; // 'full' | 'subtle' | 'off' — set from App settings
 
 // ===== CONSTANTS =====
@@ -1956,7 +1978,7 @@ function usePointerDrag(setTasks,setDragId,boardRef){
         const board=boardRef&&boardRef.current;
         if(ns==='backlog'){
           // Dropping a dated card into Backlog clears its date. Stage is preserved.
-          if(!st.backlog)setTasks(ts=>ts.map(t=>t.id===st.id?{...t,date:null}:t));
+          if(!st.backlog){setTasks(ts=>ts.map(t=>t.id===st.id?{...t,date:null}:t));logEvent('backlog_added',{via:'drag',taskId:st.id,from:st.stage});}
         }else if(ns&&(ns!==st.stage||st.backlog)){
           const dk=board?board.focusKey:null;
           const commit=()=>{
@@ -1969,7 +1991,12 @@ function usePointerDrag(setTasks,setDragId,boardRef){
               return{...t,...dated,stage:ns,completed:false};
             }));
           };
-          if(board&&board.admit)board.admit(ns,st.id,commit);else commit();
+          const commitLogged=()=>{
+            commit();
+            if(st.backlog)logEvent('backlog_pulled',{via:'drag',taskId:st.id,to:ns});
+            if(ns!==st.stage)logEvent('task_moved',{taskId:st.id,from:st.backlog?'backlog':st.stage,to:ns,via:'drag'});
+          };
+          if(board&&board.admit)board.admit(ns,st.id,commitLogged);else commitLogged();
         }
         setDragId(null);
       }
@@ -2126,7 +2153,7 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
   const [addingTag,setAddingTag]=useState(false);
   const [tagDraft,setTagDraft]=useState('');
   const [subSt2,subGrip2]=useGripReorder(moveSub);
-  function addSub(){const v=subDraft.trim();if(!v)return;if(subtasks.length>=MAX_SUBS)return;setSubtasks(arr=>[...arr,{id:uid(),name:v,done:false,steps:[]}]);setSubDraft('');if(subInputRef.current)subInputRef.current.focus();}
+  function addSub(){const v=subDraft.trim();if(!v)return;if(subtasks.length>=MAX_SUBS)return;setSubtasks(arr=>[...arr,{id:uid(),name:v,done:false,steps:[]}]);setSubDraft('');logEvent('subtask_added',{taskId:(initial&&initial.id)||null,count:subtasks.length+1});if(subInputRef.current)subInputRef.current.focus();}
   // ── Steps: the third and final level. Capped at MAX_STEPS, mirroring addSub. ──
   function addStep(subId){
     const v=stepDraft.trim();if(!v)return;
@@ -2137,6 +2164,7 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
       return{...s,steps:[...cur,{id:uid(),name:v,done:false}]};
     }));
     setStepDraft('');
+    logEvent('step_added',{taskId:(initial&&initial.id)||null,subId:subId});
     if(stepInputRef.current)stepInputRef.current.focus();
   }
   function toggleStep(subId,stepId){setSubtasks(arr=>arr.map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)}));}
@@ -2540,6 +2568,31 @@ function CropModal({src,onConfirm,onCancel}){
   );
 }
 
+// Copies the raw event log. No dashboard, no charts — the JSON is the product.
+function CopyUsageLog(){
+  const [state,setState]=useState('idle');
+  async function copy(){
+    const raw=(function(){try{return localStorage.getItem(EV_KEY)||'[]';}catch(_){return'[]';}})();
+    try{
+      await navigator.clipboard.writeText(raw);
+      setState('done');
+    }catch(_){
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=raw;ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+        setState('done');
+      }catch(__){setState('err');}
+    }
+    setTimeout(()=>setState('idle'),1800);
+  }
+  const n=readEvents().length;
+  return(
+    <SetRow icon="copy" color="var(--w-extra)" label="Copy usage log"
+      sub={state==='done'?'Copied to clipboard':state==='err'?'Copy failed — try again':(n===0?'Nothing recorded yet':n+' event'+(n===1?'':'s')+' on this device')}
+      control={<button type="button" className="btn btn--ghost" aria-label="Copy usage log to clipboard" onClick={copy}><Icon name={state==='done'?'check':'copy'} size={14}/>{state==='done'?'Copied':'Copy'}</button>}/>
+  );
+}
 function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTypeface,accent,setAccent,celebrate,setCelebrate,zoom,setZoom,subExpandDefault,setSubExpandDefault,rollover,setRollover,wipLimits,setWipLimits,templatesCount,onOpenTemplates,onSave,onPhotoSave,onClearTasks,clearScopeLabel,clearCount,onOpenArchive,archiveCount,onClose,onLogout}){
   // Appearance applies live for preview; Cancel restores what you walked in with.
   const initialLook=useRef({dark,typeface,accent,celebrate});
@@ -2681,6 +2734,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
             </SetSection>
             <SetSection label="Data &amp; privacy">
               <SetRow icon="archive" color="var(--w-light)" label="Archive" sub={archiveCount>0?archiveCount+(archiveCount===1?' archived item':' archived items'):'Recover deleted tasks & habits'} chevron onClick={()=>onOpenArchive&&onOpenArchive()}/>
+              <CopyUsageLog/>
               <SetRow icon="trash" color="var(--w-heavy)" label="Delete tasks for this day" sub={clearScopeLabel||'Clears the selected day only'} danger chevron onClick={()=>setConfirmClear(true)}/>
               {confirmClear&&(
                 <div className="setconfirm-box">
@@ -2702,7 +2756,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.21.0';
+const HEFT_VERSION='0.22.0';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -3087,6 +3141,7 @@ function App({session}){
     else if(allSubDone){patch={completed:true,stage:'done'};} // complete → move to Done
     else{patch={completed:true,stage:'doing'};} // checked complete in place, stays in its column
     const run=()=>{
+    if(patch.stage&&patch.stage!==x.stage)logEvent('task_moved',{taskId:id,from:x.stage,to:patch.stage,via:'check'});
     setTasks(ts=>ts.map(t=>t.id===id?{...t,...patch}:t));
     // First-time coach mark for the 3-state checkbox — taught in-product, once.
     if(patch.stage==='doing'&&!patch.completed&&!localStorage.getItem('heft.hint.cycle')){
@@ -3151,6 +3206,7 @@ function App({session}){
     if(!lim||stage==='done'||stage==='backlog'){apply();return;}
     const n=colCount(stage,taskId);
     if(n<lim){apply();return;}
+    logEvent('swap_shown',{stage:stage,limit:lim,count:n});
     setSwap({stage,limit:lim,count:n,apply});
   }
   // Keep the drag engine reading live board state without re-arming on every render.
@@ -3166,6 +3222,8 @@ function App({session}){
     const s=swap;if(!s)return;
     const prev=sendToBacklog(outId);
     const out=tasks.find(x=>x.id===outId);
+    logEvent('swap_resolved',{stage:s.stage,limit:s.limit,outId:outId});
+    logEvent('backlog_added',{via:'swap',taskId:outId});
     setSwap(null);
     s.apply();
     showToast('Moved “'+((out&&out.name)||'task')+'” to Backlog',{label:'Undo',fn:()=>{
@@ -3174,6 +3232,7 @@ function App({session}){
   }
   function overrideSwap(){
     const s=swap;if(!s)return;
+    logEvent('limit_overridden',{stage:s.stage,limit:s.limit,count:s.count});
     setSwap(null);
     s.apply();
   }
@@ -3207,6 +3266,23 @@ function App({session}){
     root.setProperty('--font-mono',f.ui);
     root.setProperty('--font-script',f.display);
   },[typeface]);
+
+  // ── Instrumentation: one app_opened per load, one snapshot per calendar day ──
+  const evOpened=useRef(false);
+  useEffect(()=>{
+    if(!loaded||evOpened.current)return;
+    evOpened.current=true;
+    logEvent('app_opened',{tasks:tasks.length});
+    const today=todayKeyNow();
+    let last=null;try{last=localStorage.getItem(EV_SNAP_KEY);}catch(_){}
+    if(last!==today){
+      try{localStorage.setItem(EV_SNAP_KEY,today);}catch(_){}
+      const dk=today;
+      const counts={todo:0,doing:0,done:0};
+      tasks.forEach(t=>{if(onDay(t,dk)&&counts[t.stage]!==undefined)counts[t.stage]++;});
+      logEvent('day_snapshot',{day:dk,todo:counts.todo,doing:counts.doing,done:counts.done,backlog:tasks.filter(isBacklog).length});
+    }
+  },[loaded]);
 
   // Decide onboarding once, after the initial cloud pull settles. Anyone with
   // existing tasks or habits is grandfathered in silently.
@@ -3261,6 +3337,7 @@ function App({session}){
     });
     if(modalTags)setTags(modalTags);
     setModal(null);
+    logEvent('promote_fired',{parentId:parent.id,childId:child.id,steps:stepsOf(sub).length});
     promoteRef.current={before,childId:child.id,parentId:parent.id};
     showToast('Promoted “'+sub.name+'” to the Backlog',{label:'Undo',fn:()=>{
       const u=promoteRef.current;if(!u)return;
@@ -3335,6 +3412,7 @@ function App({session}){
     const moved=pastUnfinished.map(t=>({id:t.id,date:taskDay(t)}));
     if(moved.length===0)return;
     moveDayBulk(moved.map(m=>m.id),null);
+    moved.forEach(m=>logEvent('backlog_added',{via:'rescue',taskId:m.id}));
     setBannerDismissed(d=>({...d,['past:'+todayK]:true}));
     if(flashPill)flashPill('syncing');
     showToast('Moved '+moved.length+' to Backlog',{label:'Undo',fn:()=>{
@@ -3419,7 +3497,7 @@ function App({session}){
         <div className="board__zoom" style={{zoom:zoom}}>
           <FilterChips weights={activeWeights} tag={activeTag} query={query.trim()} clearWeight={toggleWeight} clearTag={()=>setActiveTag(null)} clearQuery={()=>setQuery('')}/>
           {view==='kanban'
-            ?<KanbanView tasks={filteredTasks} backlog={backlogTasks} setTasks={setTasks} sort={sort} setSort={setSort} wipLimits={wipLimits} boardRef={boardRef} onOpenTask={(t)=>setModal({type:'task',data:t})} onAddTask={(stage)=>setModal({type:'task',data:stage==='backlog'?{stage:'todo',date:null}:{stage,date:dayKey(focusDate)}})} onCycle={cycleStage} defaultExpanded={subExpandDefault}/>
+            ?<KanbanView tasks={filteredTasks} backlog={backlogTasks} setTasks={setTasks} sort={sort} setSort={setSort} wipLimits={wipLimits} boardRef={boardRef} onOpenTask={(t)=>setModal({type:'task',data:t})} onAddTask={(stage)=>setModal({type:'task',data:stage==='backlog'?{stage:'todo',date:null}:{stage,date:dayKey(focusDate)}})} onCycle={cycleStage} defaultExpanded={subExpandDefault} onColScroll={logColumnScrolled}/>
             :<WeightView tasks={filteredTasks} setTasks={setTasks} onOpenTask={(t)=>setModal({type:'task',data:t})} onCycle={cycleStage} defaultExpanded={subExpandDefault}/>
           }
         </div>
@@ -3459,6 +3537,7 @@ function App({session}){
                 location:(t.includes&&t.includes.location&&t.location)||''
               };
               setTasks(function(ts){return[...ts,task];});
+              logEvent('task_created',{stage:task.stage,weight:task.weight,backlog:false,via:'template'});
               setModal({type:'task',data:task});
               showToast('Created from template');
             }}
@@ -3561,7 +3640,9 @@ function App({session}){
                 if(modalTags){const removed=tags.filter(x=>!modalTags.includes(x));if(removed.length)next=next.map(x=>removed.includes(x.tag)?{...x,tag:''}:x);}
                 return next;});
               if(modalTags)setTags(modalTags);
-              if(isBacklog(t)){showToast(wasNew?'Added to Backlog':'Saved to Backlog');return;}
+              if(wasNew)logEvent('task_created',{stage:t.stage,weight:t.weight,backlog:isBacklog(t)});
+              if(isBacklog(t)){if(wasNew||(prev&&!isBacklog(prev)))logEvent('backlog_added',{via:'editor',taskId:t.id});showToast(wasNew?'Added to Backlog':'Saved to Backlog');return;}
+              if(prev&&isBacklog(prev))logEvent('backlog_pulled',{via:'editor',taskId:t.id,to:t.stage});
               const savedDay=taskDay(t);
               if(savedDay!==dayKey(focusDate)){showToast('Added to '+carryLabel(new Date(savedDay+'T00:00:00')),{label:'View',fn:()=>setFocusDate(new Date(savedDay+'T00:00:00'))});}
               else showToast(modal.data?.name?'Task saved':'Task added');
