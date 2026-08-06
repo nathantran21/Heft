@@ -2922,7 +2922,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.24.0';
+const HEFT_VERSION='0.24.1';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -3069,7 +3069,20 @@ function loadLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'null')
 // Lets every push/apply path answer "did anything actually change?" so no-op
 // writes (which bump the cloud timestamp and invite devices to clobber each
 // other) and no-op applies (which force full board re-renders) can be skipped.
-function coreJSON(b){if(!b||typeof b!=='object')return null;const{_savedAt,...rest}=b;try{return JSON.stringify(rest);}catch{return null;}}
+// Canonical (deep key-sorted) serialization. Postgres jsonb does NOT preserve
+// key order, so a plain JSON.stringify of pushed-then-pulled state never
+// string-matches — comparisons must be order-insensitive or every round trip
+// looks like a "change" and the app echo-loops pushes forever.
+function stableStringify(v){
+  if(v===undefined||typeof v==='function')return undefined;
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v))return '['+v.map(x=>{const s=stableStringify(x);return s===undefined?'null':s;}).join(',')+']';
+  const keys=Object.keys(v).sort();
+  const parts=[];
+  for(const k of keys){const s=stableStringify(v[k]);if(s!==undefined)parts.push(JSON.stringify(k)+':'+s);}
+  return '{'+parts.join(',')+'}';
+}
+function coreJSON(b){if(!b||typeof b!=='object')return null;const{_savedAt,...rest}=b;try{return stableStringify(rest);}catch{return null;}}
 // Persisted "last synced" mark (content hash + cloud time). Lets a fresh session
 // tell a STALE LOCAL COPY of already-synced state (safe to replace with cloud)
 // apart from GENUINE OFFLINE EDITS (safe to push up) — something timestamps
