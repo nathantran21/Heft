@@ -1457,6 +1457,31 @@ function closeModalAnimated(cb){
 function useBoardFlip(resetKey){
   const rects=useRef(new Map());
   const keyRef=useRef(resetKey);
+  // Scrolling moves every card's viewport rect without a render. If we kept the
+  // pre-scroll rects, the next render (sync poll, toast, tick) would read a huge
+  // false delta and glide EVERY card by the scroll distance — a whole-board
+  // flicker. Recapture rects (rAF-throttled) whenever anything scrolls/resizes.
+  useEffect(()=>{
+    let raf=0;
+    function recapture(){
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{
+        raf=0;
+        const next=new Map();
+        document.querySelectorAll('.board [data-flip-id]').forEach(el=>{
+          next.set(el.getAttribute('data-flip-id'),el.getBoundingClientRect());
+        });
+        rects.current=next;
+      });
+    }
+    document.addEventListener('scroll',recapture,{capture:true,passive:true});
+    window.addEventListener('resize',recapture);
+    return()=>{
+      document.removeEventListener('scroll',recapture,{capture:true});
+      window.removeEventListener('resize',recapture);
+      if(raf)cancelAnimationFrame(raf);
+    };
+  },[]);
   useLayoutEffect(()=>{
     if(keyRef.current!==resetKey){keyRef.current=resetKey;rects.current=new Map();}
     const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -2897,7 +2922,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.23.4';
+const HEFT_VERSION='0.24.0';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -3040,6 +3065,19 @@ function Onboarding({firstName,onCreateTask,onCreateHabit,onFinish}){
 
 // ===== ROOT APP =====
 function loadLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'null');}catch{return null;}}
+// Content identity of a state blob, ignoring the volatile save timestamp.
+// Lets every push/apply path answer "did anything actually change?" so no-op
+// writes (which bump the cloud timestamp and invite devices to clobber each
+// other) and no-op applies (which force full board re-renders) can be skipped.
+function coreJSON(b){if(!b||typeof b!=='object')return null;const{_savedAt,...rest}=b;try{return JSON.stringify(rest);}catch{return null;}}
+// Persisted "last synced" mark (content hash + cloud time). Lets a fresh session
+// tell a STALE LOCAL COPY of already-synced state (safe to replace with cloud)
+// apart from GENUINE OFFLINE EDITS (safe to push up) — something timestamps
+// alone can't do across devices.
+const SYNC_KEY=SANDBOX?'heft.sandbox.sync.v1':'heft.sync.v1';
+function coreHash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return h>>>0;}
+function readSyncMark(){try{const m=JSON.parse(localStorage.getItem(SYNC_KEY)||'null');return m&&typeof m.h==='number'?m:null;}catch{return null;}}
+function writeSyncMark(core,tsMs){try{if(core!==null)localStorage.setItem(SYNC_KEY,JSON.stringify({h:coreHash(core),t:tsMs}));}catch{}}
 
 function App({session}){
   const local=useMemo(loadLocal,[]);
@@ -3087,6 +3125,14 @@ function App({session}){
   const toastTimer=useRef(null);
   const saveTimer=useRef(null);
   const lastSaveAt=useRef((local&&local._savedAt)||0); // local save timestamp — protects local data from being wiped by older cloud state
+  const lastCloudTsRef=useRef(null); // cloud updated_at we last saw — detects real remote changes without cross-device clock math
+  // Core JSON of the state last pushed to / applied from cloud — the "nothing
+  // new here" check. Seeded from the persisted sync mark: if local state still
+  // hashes to what was last synced, this device has nothing novel and any
+  // cloud change may be applied regardless of timestamp/clock skew.
+  const[initialSyncedCore]=useState(()=>{const mark=readSyncMark();const lc=coreJSON(local);return(mark&&lc!==null&&coreHash(lc)===mark.h)?lc:null;});
+  const lastSyncedJSONRef=useRef(initialSyncedCore);
+  const pullBusyRef=useRef(0); // timestamp of in-flight pull — collapses overlapping pulls (focus + visibilitychange + poll can stack on wake)
 
   const [zoom,setZoom]=useState(()=>{const z=parseFloat(localStorage.getItem('heft.zoom'));return z>=0.8&&z<=1.6?z:1;}); // per-device, never synced
   const [sidebarWidth,setSidebarWidth]=useState(()=>Math.max(200,(local&&local.sidebarWidth)||208));
@@ -3157,15 +3203,58 @@ function App({session}){
   // silent=true (auto-polls) avoids touching visible sync UI so it doesn't flicker.
   async function pullCloud(force,silent){
     if(SANDBOX){setLoaded(true);if(!silent)setSyncing(false);return;}
+    // A drag in progress owns the board — applying remote state mid-drag yanks
+    // cards out from under the pointer. The next poll (≤5s) picks the change up.
+    if(silent&&document.body.classList.contains('heft-dragging'))return;
+    // Collapse overlapping pulls, but never let a hung fetch (flaky network,
+    // no rejection) lock sync out forever — the guard expires after 15s.
+    if(pullBusyRef.current&&Date.now()-pullBusyRef.current<15000){if(!silent)setSyncing(false);return;}
+    pullBusyRef.current=Date.now();
     if(!silent)setSyncing(true);
     try{
       const{data,error}=await sb.from('heft_state').select('data,updated_at').eq('user_id',session.user.id).maybeSingle();
       if(error)throw error;
       if(data&&data.data){
+        const firstLook=lastCloudTsRef.current===null;
+        const cloudTs=data.updated_at||'';
+        const changed=cloudTs!==lastCloudTsRef.current;
         const localAt=lastSaveAt.current;
         const cloudAt=data.updated_at?new Date(data.updated_at).getTime():0;
-        // Skip applying cloud during a non-forced poll if we have unsaved local edits.
-        if(force||(cloudAt>=localAt&&!dirtyRef.current)){applyCloud(data.data);}
+        // Safe to apply remote state when nothing novel exists locally. Once this
+        // session has synced at least once (lastSyncedJSONRef set) and isn't
+        // dirty, local state is fully represented in the cloud, so clock skew
+        // between devices can never cause a wrong refusal. On the very first
+        // look of a session we fall back to the timestamp guard so offline
+        // edits from a previous session are never wiped by older cloud data.
+        const safe=!dirtyRef.current&&(lastSyncedJSONRef.current!==null||cloudAt>=localAt);
+        if(force||(changed&&safe)){
+          const incoming=coreJSON(data.data);
+          // Identical content → skip the re-render entirely (no board churn,
+          // no FLIP re-run, no spurious dirty/echo cycle).
+          if(force||incoming!==lastSyncedJSONRef.current){
+            applyCloud(data.data);
+            lastSyncedJSONRef.current=incoming;
+          }
+          writeSyncMark(incoming,cloudAt);
+          lastCloudTsRef.current=cloudTs;
+        } else if(!changed){
+          lastCloudTsRef.current=cloudTs;
+        } else if(firstLook&&!dirtyRef.current&&cloudAt<localAt&&local){
+          // Cloud is older than our last local save (edits made offline, or the
+          // final save of the last session never reached Supabase). Push local
+          // state up now instead of leaving it stranded until the next edit.
+          const raw=localStorage.getItem(LS_KEY);
+          if(raw){
+            const now=Date.now();lastSaveAt.current=now;
+            const ts=new Date(now).toISOString();
+            let blob=null;try{blob=JSON.parse(raw);}catch(_){}
+            if(blob){
+              blob._savedAt=now;
+              const{error:e2}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
+              if(!e2){const c2=coreJSON(blob);lastSyncedJSONRef.current=c2;writeSyncMark(c2,now);setLastSyncedAt(Date.now());}
+            }
+          }
+        }
       } else {
         if(!local) setTasks([]);
       }
@@ -3174,6 +3263,7 @@ function App({session}){
       setSaveError(true);
       console.warn('[Heft] pullCloud failed:',e);
     }
+    pullBusyRef.current=0;
     setLoaded(true);
     if(!silent)setSyncing(false);
   }
@@ -3191,35 +3281,54 @@ function App({session}){
     const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
     localStorage.setItem(LS_KEY,JSON.stringify(blob));
     if(SANDBOX){setSyncing(false);flashPill('ok');return;}
-    const{error}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
-    if(error){setSaveError(true);flashPill('error');setSyncing(false);console.warn('[Heft] manualSync save failed:',error);return;}
-    setSaveError(false);dirtyRef.current=false;setLastSyncedAt(Date.now());await pullCloud(false);
+    // Only push when something genuinely changed on THIS device. A refresh on
+    // a stale device must fetch the newer cloud state, not overwrite it.
+    const core=coreJSON(blob);
+    if(dirtyRef.current||(lastSyncedJSONRef.current!==null&&core!==lastSyncedJSONRef.current)){
+      const{error}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
+      if(error){setSaveError(true);flashPill('error');setSyncing(false);console.warn('[Heft] manualSync save failed:',error);return;}
+      lastSyncedJSONRef.current=core;writeSyncMark(core,now);
+      setSaveError(false);dirtyRef.current=false;setLastSyncedAt(Date.now());
+    }
+    await pullCloud(false);
     flashPill('ok');
   }
 
   // Flush save when tab/app goes to background — ensures Supabase has latest
   // data before the user switches to another device or the dock app.
   useEffect(()=>{
+    function flushNow(){
+      if(!loaded)return;
+      // Cancel debounce and save RIGHT NOW
+      if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
+      const now=Date.now();lastSaveAt.current=now;
+      const ts=new Date(now).toISOString();
+      const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
+      localStorage.setItem(LS_KEY,JSON.stringify(blob));
+      if(SANDBOX)return;
+      // CRITICAL: never push unless this device actually changed something.
+      // The old unconditional flush let a stale device (e.g. a Mac waking from
+      // suspend mid-pull, then re-hiding) overwrite newer changes from another
+      // device with old data at a fresh timestamp — the "my phone's check-offs
+      // revert" bug.
+      if(!dirtyRef.current)return;
+      const core=coreJSON(blob);
+      if(core===lastSyncedJSONRef.current){dirtyRef.current=false;return;} // only a cloud echo — nothing new to say
+      sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'}).then(({error})=>{
+        if(error){setSaveError(true);console.warn('[Heft] background save failed:',error);}
+        else{setSaveError(false);dirtyRef.current=false;lastSyncedJSONRef.current=core;writeSyncMark(core,now);setLastSyncedAt(Date.now());}
+      });
+    }
     function onVis(){
-      if(document.visibilityState==='hidden'&&loaded){
-        // Cancel debounce and save RIGHT NOW
-        if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
-        const now=Date.now();lastSaveAt.current=now;
-        const ts=new Date(now).toISOString();
-        const blob={tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,dark,celebrate,view,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits,_savedAt:now};
-        localStorage.setItem(LS_KEY,JSON.stringify(blob));
-        if(SANDBOX)return;
-        sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'}).then(({error})=>{
-          if(error){setSaveError(true);console.warn('[Heft] background save failed:',error);}
-          else{setSaveError(false);dirtyRef.current=false;setLastSyncedAt(Date.now());}
-        });
-      } else if(document.visibilityState==='visible'){
+      if(document.visibilityState==='hidden'){flushNow();}
+      else if(document.visibilityState==='visible'){
         // Pull latest when coming back to foreground (silent)
         pullCloud(false,true);
       }
     }
     document.addEventListener('visibilitychange',onVis);
-    return()=>document.removeEventListener('visibilitychange',onVis);
+    window.addEventListener('pagehide',flushNow); // iOS Safari can suspend a PWA without ever firing visibilitychange
+    return()=>{document.removeEventListener('visibilitychange',onVis);window.removeEventListener('pagehide',flushNow);};
   },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits]);
 
   // Poll every 5s while in foreground — Notion-like sync responsiveness
@@ -3259,8 +3368,14 @@ function App({session}){
       localStorage.setItem(LS_KEY,JSON.stringify(blob));
       const settlePill=()=>setSyncPill(pv=>{if(pv&&pv.state==='syncing'){if(pillTimer.current)clearTimeout(pillTimer.current);pillTimer.current=setTimeout(()=>setSyncPill(null),1600);return{state:'ok'};}return pv;});
       if(SANDBOX){setSaveError(false);dirtyRef.current=false;settlePill();return;}
+      // Skip the upsert when content is identical to what's already synced —
+      // typically this render was a cloud pull being applied. Prevents "echo"
+      // pushes that bump the cloud timestamp on every device that pulls,
+      // creating windows where devices overwrite each other's newer state.
+      const core=coreJSON(blob);
+      if(core===lastSyncedJSONRef.current){setSaveError(false);dirtyRef.current=false;settlePill();return;}
       const{error}=await sb.from('heft_state').upsert({user_id:session.user.id,data:blob,updated_at:ts},{onConflict:'user_id'});
-      if(error){setSaveError(true);console.warn('[Heft] save failed:',error);}else{setSaveError(false);dirtyRef.current=false;setLastSyncedAt(Date.now());settlePill();}
+      if(error){setSaveError(true);console.warn('[Heft] save failed:',error);}else{setSaveError(false);dirtyRef.current=false;lastSyncedJSONRef.current=core;writeSyncMark(core,now);setLastSyncedAt(Date.now());settlePill();}
     },500);
   },[loaded,tasks,habits,habitLog,habitArchive,taskArchive,tags,profile,view,dark,typeface,accent,sidebarWidth,sort,rollover,templates,wipLimits]);
 
