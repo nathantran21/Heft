@@ -47,6 +47,28 @@ const STAGES=['todo','doing','done'];
 const MAX_SUBS=10;
 const MAX_STEPS=6;
 function stepsOf(s){return (s&&Array.isArray(s.steps))?s.steps:[];}
+// Completing a subtask sinks it to the bottom of the list so remaining work
+// stays on top. Unchecking lifts it back above the done pile.
+function toggleSubAndSink(subs, subId){
+  const list=(subs||[]).slice();
+  const i=list.findIndex(s=>s.id===subId);
+  if(i<0)return list;
+  const next={...list[i],done:!list[i].done};
+  list.splice(i,1);
+  if(next.done){
+    list.push(next);
+  }else{
+    const firstDone=list.findIndex(s=>s.done);
+    list.splice(firstDone<0?list.length:firstDone,0,next);
+  }
+  return list;
+}
+function patchTaskSubToggle(task, subId){
+  const subs=toggleSubAndSink(task.subtasks, subId);
+  let stage=task.stage;
+  if(task.completed) stage=(subs.length>0&&subs.every(s=>s.done))?'done':'doing';
+  return {...task, subtasks:subs, stage};
+}
 // ── Backlog ──────────────────────────────────────────────────────────────
 // A task with date===null lives in the Backlog and belongs to no day.
 // Legacy tasks always carry a date string, and undefined/'' still falls back to
@@ -740,11 +762,11 @@ function TaskCard({task,onToggle,onCycle,onOpen,draggable,onPointerDown,onSubTog
           {(task.subtasks||[]).map((s,i)=>{
             const steps=stepsOf(s);const stepsDone=steps.filter(p=>p.done).length;
             return(
-            <div key={s.id} className="subtree__item" data-subindex={i} data-hassteps={steps.length>0?'true':'false'} data-dragging={subSt&&subSt.from===i?'true':'false'} data-droptarget={subSt&&subSt.over===i&&subSt.from!==i?'true':'false'}>
+            <div key={s.id} className="subtree__item" data-flip-id={task.id+':sub:'+s.id} data-subindex={i} data-hassteps={steps.length>0?'true':'false'} data-dragging={subSt&&subSt.from===i?'true':'false'} data-droptarget={subSt&&subSt.over===i&&subSt.from!==i?'true':'false'}>
               <div className="subcard" data-done={s.done?'true':'false'}
                 style={{'--w':`var(--w-${weight})`}}>
                 <button type="button" className="subcard__check" aria-label={(s.done?'Uncheck subtask: ':'Complete subtask: ')+s.name} data-done={s.done?'true':'false'} onClick={(e)=>{e.stopPropagation();onSubToggle&&onSubToggle(s.id,e);}}>{s.done&&<Icon name="check" size={11}/>}</button>
-                <span className="subcard__name">{s.name}</span>
+                <span className="subcard__name" onClick={(e)=>{e.stopPropagation();onSubToggle&&onSubToggle(s.id,e);}}>{s.name}</span>
                 {steps.length>0&&<span className="subcard__steps" aria-label={stepsDone+' of '+steps.length+' steps done'}>{stepsDone}/{steps.length}</span>}
                 <button type="button" className="subcard__trash" title="Delete subtask" onClick={(e)=>{e.stopPropagation();setPendingDelete(s);}}>
                   <Icon name="trash" size={14}/>
@@ -1004,7 +1026,7 @@ function Column({stage,tasks,items,setTasks,dragId,setDragId,sort,setSort,onOpen
             defaultExpanded={defaultExpanded}
             draggable={true}
             onPointerDown={onPD?(e)=>onPD(e,t):undefined}
-            onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=(cur.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const subs=(x.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);let stage=x.stage;if(x.completed)stage=(subs.length>0&&subs.every(s=>s.done))?'done':'doing';return{...x,subtasks:subs,stage};}));}}
+            onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=toggleSubAndSink(cur.subtasks,subId);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>x.id!==t.id?x:patchTaskSubToggle(x,subId)));}}
             onSubReorder={(from,to)=>setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const arr=(x.subtasks||[]).slice();if(to<0||to>=arr.length||from===to)return x;const[m]=arr.splice(from,1);arr.splice(to,0,m);return{...x,subtasks:arr};}))}
             onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}
             onStepToggle={(subId,stepId)=>setTasks(ts=>ts.map(x=>x.id!==t.id?x:{...x,subtasks:(x.subtasks||[]).map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)})}))}/>
@@ -1053,7 +1075,7 @@ function Lane({weight,tasks,setTasks,onOpenTask,onCycle,defaultExpanded}){
             onCycle={(e)=>onCycle(t.id,e)}
             onOpen={onOpenTask}
             defaultExpanded={defaultExpanded}
-            onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=(cur.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const subs=(x.subtasks||[]).map(s=>s.id===subId?{...s,done:!s.done}:s);let stage=x.stage;if(x.completed)stage=(subs.length>0&&subs.every(s=>s.done))?'done':'doing';return{...x,subtasks:subs,stage};}));}}
+            onSubToggle={(subId,e)=>{const cur=tasks.find(v=>v.id===t.id);if(cur&&cur.completed&&cur.stage!=='done'&&e){const after=toggleSubAndSink(cur.subtasks,subId);if(after.length>0&&after.every(s=>s.done)){const r=e.currentTarget.getBoundingClientRect();fireConfetti(r.left+r.width/2,r.top+r.height/2,1.2);}}setTasks(ts=>ts.map(x=>x.id!==t.id?x:patchTaskSubToggle(x,subId)));}}
             onSubReorder={(from,to)=>setTasks(ts=>ts.map(x=>{if(x.id!==t.id)return x;const arr=(x.subtasks||[]).slice();if(to<0||to>=arr.length||from===to)return x;const[m]=arr.splice(from,1);arr.splice(to,0,m);return{...x,subtasks:arr};}))}
             onSubDelete={(subId)=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,subtasks:(x.subtasks||[]).filter(s=>s.id!==subId)}:x))}
             onStepToggle={(subId,stepId)=>setTasks(ts=>ts.map(x=>x.id!==t.id?x:{...x,subtasks:(x.subtasks||[]).map(s=>s.id!==subId?s:{...s,steps:stepsOf(s).map(p=>p.id===stepId?{...p,done:!p.done}:p)})}))}/>
@@ -1163,7 +1185,7 @@ function TaskModal({initial,tags:initTags,onSave,onDelete,onClose,onDuplicate,on
                   <div className="subedit__group" key={s.id} data-subindex={i} data-dragging={subSt2&&subSt2.from===i?'true':'false'} data-over={subSt2&&subSt2.over===i&&subSt2.from!==i?'true':'false'}>
                     <div className="subedit__row" data-done={s.done?'true':'false'}>
                       <span className="subedit__grip" onPointerDown={(e)=>subGrip2(e,i,'.subedit__group')} style={{touchAction:'pan-y',cursor:'grab'}}><Icon name="grip" size={15}/></span>
-                      <button type="button" className="subedit__check" data-done={s.done?'true':'false'} aria-label={(s.done?'Uncheck subtask: ':'Complete subtask: ')+s.name} onClick={()=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,done:!x.done}:x))}><Icon name="check" size={11}/></button>
+                      <button type="button" className="subedit__check" data-done={s.done?'true':'false'} aria-label={(s.done?'Uncheck subtask: ':'Complete subtask: ')+s.name} onClick={()=>setSubtasks(arr=>toggleSubAndSink(arr,s.id))}><Icon name="check" size={11}/></button>
                       <input className="subedit__input" aria-label="Subtask name" value={s.name} onChange={(e)=>setSubtasks(arr=>arr.map(x=>x.id===s.id?{...x,name:e.target.value}:x))}/>
                       {steps.length>0&&<span className="subedit__rollup" aria-label={sd+' of '+steps.length+' steps done'} title="Steps done">{sd}/{steps.length}</span>}
                       {editing&&onPromote&&<button type="button" className="subedit__promote" aria-label="Promote to its own task" title="Promote to its own task" onClick={()=>promoteSub(s)}><Icon name="promote" size={14}/></button>}

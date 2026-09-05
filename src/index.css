@@ -263,7 +263,7 @@ input,textarea{font-family:inherit;}
 .subcard:active{cursor:grabbing;}
 .subcard__check{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--border-strong);background:transparent;display:grid;place-items:center;cursor:pointer;padding:0;flex-shrink:0;color:transparent;transition:background .12s,border-color .12s;}
 .subcard__check[data-done="true"]{background:var(--w,var(--accent));border-color:var(--w,var(--accent));color:#fff;}
-.subcard__name{flex:1;font-size:13.5px;color:var(--text);line-height:1.35;}
+.subcard__name{flex:1;font-size:13.5px;color:var(--text);line-height:1.35;cursor:pointer;}
 .subcard[data-done="true"] .subcard__name{text-decoration:line-through;color:var(--text-faint);}
 .subcard__grip{opacity:0;cursor:grab;color:var(--text-faint);display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;transition:opacity .15s;background:none;border:0;padding:0;}
 .subcard__grip:active{cursor:grabbing;}
