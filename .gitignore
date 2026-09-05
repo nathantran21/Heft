@@ -2,3 +2,7 @@
 node_modules/
 .vercel
 .env*
+!.env.example
+dist
+dev-dist
+supabase/.temp/

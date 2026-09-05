@@ -7,10 +7,12 @@ heft-latest was never modified. heft-v2 is a full copy with the redesign applied
 ## How to run
 
 ```
-cd "~/Downloads/Projects - Heft/heft-v2" && python3 -m http.server 8642
+cd heft && npm install && npm run dev
 ```
-- Test safely: http://localhost:8642/index.html?sandbox=1 (isolated data, no login)
-- Real mode: http://localhost:8642/index.html (your live tasks, synced)
+- Test safely: http://localhost:5173/?sandbox=1 (isolated data, no login)
+- Real mode: http://localhost:5173/ (your live tasks, synced)
+
+Production build: `npm run build` (Vercel uses this; output is `dist/`).
 
 ## The redesign
 
@@ -59,7 +61,6 @@ cd "~/Downloads/Projects - Heft/heft-v2" && python3 -m http.server 8642
 ## Roadmap (found, not built — bigger than a reskin)
 
 - **Cross-day review surface** ("all open tasks" list) and cross-day search — search currently only scans the focused day (Carlos, Linda, Marcus)
-- **Recurring tasks** — templates don't substitute for "monthly invoices" (Carlos, Marcus)
 - **Backlog / someday list** — every task requires a date today (Carlos)
 - Multi-select bulk move with target-date picker (`moveDayBulk` already exists) (Marcus)
 - Rapid entry: "Save & add another" keeping last tag/weight (Marcus)
@@ -67,10 +68,10 @@ cd "~/Downloads/Projects - Heft/heft-v2" && python3 -m http.server 8642
 - Per-column sort (all three columns share one sort state today)
 - Sync: whole-blob last-writer-wins can drop edits made on two devices within the 5s window — per-collection merge before multi-device use grows (Marcus)
 - Password reset flow + Sign in with Apple/Google; "Forgot password" doesn't exist (Jae)
-- Pre-build the JSX (drop Babel-standalone + dev React from CDN) — seconds of cold-start on phones; also cache CDN assets in sw.js for offline cold boot (Tom, Jae)
+- Board-spawned recurring invoices (weighted kanban cards on a schedule) stay out of scope — weekly/monthly habits cover the repeat need; templates remain the manual reuse path (Carlos, Marcus)
 - High-contrast / reduced-transparency option for the glass (Nadia, Tom)
 - Auto theme should track OS changes live (currently sampled once)
 
 ## Deploying v2
 
-When happy with sandbox testing, replace the live deployment (heft-mauve.vercel.app) with the contents of `heft-v2/`. Data migrates automatically — same localStorage key and Supabase row; the onboarding will not appear for the existing account.
+When happy with sandbox testing, deploy the Vite build (`npm run build` → `dist/`, which Vercel already uses). Data migrates automatically — same localStorage key and Supabase row; the onboarding will not appear for the existing account.
