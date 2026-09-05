@@ -6,3 +6,4 @@ node_modules/
 dist
 dev-dist
 supabase/.temp/
+.gstack/
