@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import { registerHeftSW } from './pwa';
 import './index.css';
+import './sandbox-ui.css';
 
 // ===== SUPABASE =====
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ezmqnbfpnulsgcemmiia.supabase.co';
@@ -13,8 +14,10 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ?sandbox=1 → isolated test environment: separate localStorage key, no auth,
 // no Supabase reads/writes. Real user data is never touched.
 const SANDBOX=new URLSearchParams(location.search).has('sandbox');
-const LS_KEY=SANDBOX?'heft.sandbox.v1':'heft.v1';
-const LS_ONBOARD_KEY=SANDBOX?'heft.sandbox.onboarded':'heft.onboarded';
+const SANDBOX_INTRO=SANDBOX&&new URLSearchParams(location.search).has('intro');
+const LS_KEY=SANDBOX?'heft.sandbox.ui3':'heft.v1';
+const LS_ONBOARD_KEY=SANDBOX?'heft.sandbox.tour3':'heft.onboarded';
+if(SANDBOX&&typeof document!=='undefined')document.documentElement.dataset.sandbox='1';
 // ── Usage log ────────────────────────────────────────────────────────────
 // Append-only ring buffer in its own localStorage key. Deliberately NOT part of
 // the synced blob and never written to Supabase — it is a local baseline only.
@@ -345,6 +348,8 @@ function Icon({name,size=16}){
         case 'lightbulb':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M9 21h6M12 3a6 6 0 0 1 4.24 10.24c-.9.9-1.5 2.1-1.74 3.26H9.5c-.24-1.16-.84-2.36-1.74-3.26A6 6 0 0 1 12 3z"/><path {...p} d="M9 17h6"/></svg>;
     case 'dots':return <svg viewBox="0 0 24 24" style={s}><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>;
     case 'arrowright':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M5 12h14M13 6l6 6-6 6"/></svg>;
+    case 'menu':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M5 7h14M5 12h14M5 17h14"/></svg>;
+    case 'weightview':return <svg viewBox="0 0 24 24" style={s}><path {...p} d="M5 16v3M10 11v8M15 7v12M20 13v6"/></svg>;
     case 'carryover':return <svg viewBox="0 0 24 24" style={s}><rect {...p} x="3" y="4.5" width="18" height="16" rx="2"/><path {...p} d="M3 9h18M8 2.5v4M16 2.5v4"/><path {...p} d="M9 14h6M13 12l2 2-2 2"/></svg>;
     default:return null;
   }
@@ -833,7 +838,7 @@ function BoardEmptyState({onAddTask}){
         <span className="board-empty__chip"><span className="board-empty__chip-dot" style={{background:'var(--w-light)'}}/>Daily Habits</span>
         <span className="board-empty__chip"><span className="board-empty__chip-dot" style={{background:'var(--accent)'}}/>Cross-device Sync</span>
       </div>
-      <button className="board-empty__cta" onClick={()=>onAddTask('todo')}>
+      <button className="board-empty__cta" data-tour="empty" onClick={()=>onAddTask('todo')}>
         <Icon name="plus" size={16}/>Add your first task
       </button>
       <p className="board-empty__tip"><Icon name="lightbulb" size={13}/>Drag tasks between columns as you progress.</p>
@@ -1716,7 +1721,7 @@ function SettingsModal({profile,userId,dark,setDark,view,setView,typeface,setTyp
 }
 
 // ===== INITIAL DATA =====
-const HEFT_VERSION='0.25.1';
+const HEFT_VERSION='0.25.2';
 const TPL_ICONS=['camera','star','briefcase','users','cal','mappin','mail','package','globe','palette','music','coffee','zap','heart','filetext','repeat'];
 function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
@@ -1724,6 +1729,28 @@ function todayKeyNow(){const n=new Date();return n.getFullYear()+'-'+String(n.ge
 const INITIAL_TASKS=[];
 const INITIAL_HABITS=[];
 function makeInitialLog(){return {};}
+function sandboxSeed(dk){
+  return{
+    tasks:[
+      {id:'sb-t1',seq:1,date:dk,stage:'todo',name:'Write the redesign brief',weight:'heavy',tag:'Heft',notes:'What should the desk feel like at 7am?',completed:false,subtasks:[
+        {id:'sb-s1',name:'Name the feeling',done:true,steps:[]},
+        {id:'sb-s2',name:'Cut the chrome',done:false,steps:[]},
+        {id:'sb-s3',name:'Show weight, don\'t label it',done:false,steps:[]},
+      ]},
+      {id:'sb-t2',seq:2,date:dk,stage:'todo',name:'Reply to Alex',weight:'light',tag:'Client',notes:'',completed:false,subtasks:[]},
+      {id:'sb-t3',seq:3,date:dk,stage:'doing',name:'Review yesterday\'s carry-over',weight:'medium',tag:'Heft',notes:'',completed:false,subtasks:[]},
+      {id:'sb-t4',seq:4,date:dk,stage:'doing',name:'Ship the update notes',weight:'extra',tag:'Heft',notes:'One paragraph. No changelog voice.',completed:false,subtasks:[]},
+      {id:'sb-t5',seq:5,date:dk,stage:'done',name:'Morning walk',weight:'light',tag:'Personal',notes:'',completed:true,subtasks:[]},
+      {id:'sb-t6',seq:6,date:null,stage:'todo',name:'Rebuild the habit tracker',weight:'heavy',tag:'Heft',notes:'Later. Not today.',completed:false,subtasks:[]},
+    ],
+    habits:[
+      {id:'sb-h1',name:'Walk',icon:'sun',cadence:'daily'},
+      {id:'sb-h2',name:'Write',icon:'pen',cadence:'daily'},
+    ],
+    habitLog:{'sb-h1':[dk]},
+    tags:['Heft','Client','Personal'],
+  };
+}
 
 // Legacy demo task IDs from earlier builds — filtered out on every load
 // so they never reappear even if previously saved to localStorage or Supabase.
@@ -1759,6 +1786,81 @@ function DayProgress({done,total}){
       </svg>
       <span className="dayring__lbl">{complete?'✓':done+'/'+total}</span>
     </span>
+  );
+}
+
+// ===== PRODUCT TOUR =====
+// Guest-first: walk the real chrome, then ask about an account.
+const TOUR_STEPS=[
+  {id:'welcome',title:'Your day, weighed.',body:'Heft is a board for today. Tasks get a weight — Light, Medium, Heavy, or Extra — so you can see what a day actually costs.'},
+  {id:'day',sel:'[data-tour="day"]',title:'This is today.',body:'Arrows move you to yesterday or tomorrow. If you wander off, tap the date to come back.'},
+  {id:'cal',sel:'[data-tour="cal"]',title:'Calendar and filters.',body:'The calendar, habits, and weight filters live here. Open it when you need them — it stays out of the way.'},
+  {id:'view',sel:'[data-tour="view"]',title:'Board or Weight.',body:'Board is columns: To Do, In Progress, Done. Weight groups the same tasks by how heavy they feel.'},
+  {id:'add',sel:'[data-tour="add"]',title:'New tasks start here.',body:'Give each one a weight when you add it. You can also tap Add your first task on an empty day.'},
+  {id:'account',title:'Keep this day?',body:'Heft works on this device without an account. Create one if you want the same board on your phone and laptop.'},
+];
+function Tour({onFinish,onCreateAccount}){
+  const [step,setStep]=useState(0);
+  const [rect,setRect]=useState(null);
+  const [frame,setFrame]=useState(null);
+  const s=TOUR_STEPS[step];
+  const last=step===TOUR_STEPS.length-1;
+  useLayoutEffect(()=>{
+    function measure(){
+      const app=document.getElementById('app');
+      if(app){
+        const a=app.getBoundingClientRect();
+        setFrame({top:a.top,left:a.left,width:a.width,height:a.height});
+      }
+      if(!s.sel){setRect(null);return;}
+      const el=document.querySelector(s.sel);
+      if(!el){setRect(null);return;}
+      const r=el.getBoundingClientRect();
+      setRect({top:r.top-8,left:r.left-8,width:r.width+16,height:r.height+16});
+    }
+    measure();
+    const raf=requestAnimationFrame(measure);
+    window.addEventListener('resize',measure);
+    return()=>{cancelAnimationFrame(raf);window.removeEventListener('resize',measure);};
+  },[step,s.sel]);
+  useEffect(()=>{
+    function onKey(e){if(e.key==='Escape')onFinish();}
+    window.addEventListener('keydown',onKey);
+    return()=>window.removeEventListener('keydown',onKey);
+  },[onFinish]);
+  const pad=16;
+  const left=frame?frame.left+pad:pad;
+  const width=frame?Math.max(0,frame.width-pad*2):undefined;
+  const place=rect?(rect.top+rect.height>(frame?frame.top+frame.height*0.55:window.innerHeight*0.55)?'above':'below'):'center';
+  const cardStyle=rect?{
+    left,width,
+    top:place==='below'?rect.top+rect.height+12:undefined,
+    bottom:place==='above'?Math.max(12,window.innerHeight-(rect.top-12)):undefined,
+  }:undefined;
+  return(
+    <div className="tour" data-anchored={rect?'true':'false'} role="dialog" aria-modal="true" aria-labelledby="tour-title">
+      {!rect&&<div className="tour__veil" aria-hidden="true"/>}
+      {rect&&<div className="tour__hole" style={{top:rect.top,left:rect.left,width:rect.width,height:rect.height}} aria-hidden="true"/>}
+      <div className="tour__card" data-place={place} style={cardStyle}>
+        {step===0&&<div className="tour__mark" aria-hidden="true"><HeftMark size={36}/></div>}
+        <div className="tour__dots" aria-hidden="true">{TOUR_STEPS.map((x,i)=><span key={x.id} className="tour__dot" data-on={i<=step?'true':'false'}/>)}</div>
+        <h2 className="tour__title" id="tour-title">{s.title}</h2>
+        <p className="tour__body">{s.body}</p>
+        <div className="tour__actions">
+          {last?(
+            <React.Fragment>
+              <button type="button" className="btn btn--primary onboard__cta" onClick={onCreateAccount}>Create an account</button>
+              <button type="button" className="onboard__skip" onClick={onFinish}>Not now — keep going</button>
+            </React.Fragment>
+          ):(
+            <React.Fragment>
+              <button type="button" className="btn btn--primary onboard__cta" onClick={()=>setStep(n=>n+1)}>{step===0?'Show me around':'Next'}</button>
+              <button type="button" className="onboard__skip" onClick={onFinish}>Skip</button>
+            </React.Fragment>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1888,11 +1990,11 @@ function writeSyncMark(core,tsMs){try{if(core!==null)localStorage.setItem(SYNC_K
 function App({session}){
   const local=useMemo(loadLocal,[]);
   const [dark,setDark]=useState(local?.dark??false);
-  const [view,setView]=useState(local?.view||'kanban');
+  const [view,setView]=useState(SANDBOX?'kanban':(local?.view||'kanban'));
   // Subtask default expand preference — per device. Default: expanded (true).
   const [subExpandDefault,setSubExpandDefault]=useState(()=>{const v=localStorage.getItem('heft.subExpand');return v===null?true:v==='true';});
   useEffect(()=>{localStorage.setItem('heft.subExpand',String(subExpandDefault));},[subExpandDefault]);
-  const [tasks,setTasks]=useState(stripDemoTasks(local?.tasks)); // never seed demo tasks
+  const [tasks,setTasks]=useState(()=>stripDemoTasks(local?.tasks));
   const [habits,setHabits]=useState(local?.habits||INITIAL_HABITS);
   const [habitLog,setHabitLog]=useState(local?.habitLog||makeInitialLog());
   const [habitArchive,setHabitArchive]=useState(local?.habitArchive||[]); // deleted habits, recoverable from Settings → Habit archive
@@ -1908,7 +2010,7 @@ function App({session}){
     if(prev instanceof Date&&d instanceof Date){dayNavDir.current=d>prev?1:(d<prev?-1:0);}
     setFocusDateRaw(d);
   },[]);
-  const [sidebarOpen,setSidebarOpen]=useState(()=>window.innerWidth>=768); // closed by default on mobile
+  const [sidebarOpen,setSidebarOpen]=useState(()=>SANDBOX?false:window.innerWidth>=768); // closed by default on mobile
   const [activeWeights,setActiveWeights]=useState([]);
   const [activeTag,setActiveTag]=useState(null);
   const [query,setQuery]=useState('');
@@ -2392,14 +2494,20 @@ function App({session}){
   useEffect(()=>{
     if(!loaded||onboardChecked.current)return;
     onboardChecked.current=true;
+    if(SANDBOX){
+      if(!SANDBOX_INTRO&&localStorage.getItem(LS_ONBOARD_KEY))return;
+      setShowOnboard(true);
+      return;
+    }
     if(localStorage.getItem(LS_ONBOARD_KEY))return;
     if(tasks.length===0&&habits.length===0)setShowOnboard(true);
     else localStorage.setItem(LS_ONBOARD_KEY,'1');
   },[loaded]);
 
   const lbl=fullDateLabel(focusDate);
-  const [isMobile,setIsMobile]=useState(()=>typeof window!=='undefined'&&window.innerWidth<768);
+  const [isMobile,setIsMobile]=useState(()=>SANDBOX||(typeof window!=='undefined'&&window.innerWidth<768));
   useEffect(()=>{
+    if(SANDBOX){setIsMobile(true);return;}
     function onR(){setIsMobile(window.innerWidth<768);}
     window.addEventListener('resize',onR);
     return()=>window.removeEventListener('resize',onR);
@@ -2564,17 +2672,52 @@ function App({session}){
 
       {/* MOBILE DATE BAR */}
       <div className="datebar mobile-only">
-        <button className="datebar__panel" aria-label="Calendar, habits & filters" onClick={()=>setSidebarOpen(o=>!o)}><Icon name="filter" size={16}/>{saveError&&<span className="sync-err-dot" style={{position:'absolute',top:-3,right:-3}}/>}</button>
-        <div className="datebar__center">
-          <button className="datebar__arrow" aria-label="Previous day" onClick={()=>setFocusDate(shiftDay(focusDate,-1))}><Icon name="chevL" size={18}/></button>
-          <div className="datebar__dateblock">
-            <span className="datebar__date">{focusDate.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:focusDate.getFullYear()!==todayDate().getFullYear()?'numeric':undefined})}</span>
-            {!lbl.isToday&&<button className="datebar__today" onClick={()=>setFocusDate(todayDate())}>Today</button>}
-          </div>
-          <button className="datebar__arrow" aria-label="Next day" onClick={()=>setFocusDate(shiftDay(focusDate,1))}><Icon name="chevron" size={18}/></button>
-          <DayProgress done={dayStats.done} total={dayStats.total}/>
-        </div>
-        <button className="datebar__panel datebar__panel--right" aria-label={view==='kanban'?'Switch to Weight view':'Switch to Board view'} onClick={()=>setView(v=>v==='kanban'?'weight':'kanban')}><Icon name="layout" size={16}/></button>
+        {SANDBOX?(
+          <React.Fragment>
+            <button type="button" className="datebar__btn" data-tour="cal" aria-label={sidebarOpen?'Close calendar and filters':'Open calendar and filters'} aria-pressed={sidebarOpen?'true':'false'} data-on={sidebarOpen?'true':'false'} onClick={()=>setSidebarOpen(o=>!o)}>
+              <Icon name="cal" size={22}/>
+              {saveError&&<span className="sync-err-dot"/>}
+            </button>
+            <div className="datebar__center" data-tour="day">
+              <button type="button" className="datebar__btn datebar__btn--ghost" aria-label="Previous day" onClick={()=>setFocusDate(shiftDay(focusDate,-1))}><Icon name="chevL" size={22}/></button>
+              {lbl.isToday?(
+                <div className="datebar__stamp" aria-current="date">
+                  <span className="datebar__dow">{FULL_WEEKDAYS[focusDate.getDay()]}</span>
+                  <span className="datebar__md">{FULL_MONTHS[focusDate.getMonth()].slice(0,3)+' '+focusDate.getDate()}</span>
+                </div>
+              ):(
+                <button type="button" className="datebar__stamp" data-jump="true" aria-label={'Jump to today from '+lbl.text} onClick={()=>setFocusDate(todayDate())}>
+                  <span className="datebar__dow">{FULL_WEEKDAYS[focusDate.getDay()]}</span>
+                  <span className="datebar__md">{FULL_MONTHS[focusDate.getMonth()].slice(0,3)+' '+focusDate.getDate()}</span>
+                  <span className="datebar__jump">Today</span>
+                </button>
+              )}
+              <button type="button" className="datebar__btn datebar__btn--ghost" aria-label="Next day" onClick={()=>setFocusDate(shiftDay(focusDate,1))}><Icon name="chevron" size={22}/></button>
+            </div>
+            <button
+              type="button"
+              className="datebar__btn"
+              data-tour="view"
+              aria-label={view==='kanban'?'Switch to Weight view':'Switch to Board view'}
+              onClick={()=>setView(v=>v==='kanban'?'weight':'kanban')}>
+              <Icon name={view==='kanban'?'weightview':'layout'} size={22}/>
+            </button>
+          </React.Fragment>
+        ):(
+          <React.Fragment>
+            <button className="datebar__panel" aria-label="Calendar, habits & filters" onClick={()=>setSidebarOpen(o=>!o)}><Icon name="filter" size={16}/>{saveError&&<span className="sync-err-dot" style={{position:'absolute',top:-3,right:-3}}/>}</button>
+            <div className="datebar__center">
+              <button className="datebar__arrow" aria-label="Previous day" onClick={()=>setFocusDate(shiftDay(focusDate,-1))}><Icon name="chevL" size={18}/></button>
+              <div className="datebar__dateblock">
+                <span className="datebar__date">{focusDate.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:focusDate.getFullYear()!==todayDate().getFullYear()?'numeric':undefined})}</span>
+                {!lbl.isToday&&<button className="datebar__today" onClick={()=>setFocusDate(todayDate())}>Today</button>}
+              </div>
+              <button className="datebar__arrow" aria-label="Next day" onClick={()=>setFocusDate(shiftDay(focusDate,1))}><Icon name="chevron" size={18}/></button>
+              <DayProgress done={dayStats.done} total={dayStats.total}/>
+            </div>
+            <button className="datebar__panel datebar__panel--right" aria-label={view==='kanban'?'Switch to Weight view':'Switch to Board view'} onClick={()=>setView(v=>v==='kanban'?'weight':'kanban')}><Icon name="layout" size={16}/></button>
+          </React.Fragment>
+        )}
       </div>
 
       {/* MAIN */}
@@ -2680,7 +2823,7 @@ function App({session}){
               <Icon name="carryover" size={17}/>Carry over
             </button>
           )}
-          <button className="fab" onClick={()=>setModal({type:'task',data:{stage:'todo',date:dayKey(focusDate)}})}><Icon name="plus" size={18}/>Add task</button>
+          <button className="fab" data-tour="add" onClick={()=>setModal({type:'task',data:{stage:'todo',date:dayKey(focusDate)}})}><Icon name="plus" size={18}/>Add task</button>
         </div>
 
         {/* Toast */}
@@ -2809,27 +2952,39 @@ function App({session}){
       {modal?.type==='tags'&&(
         <TagManager tags={tags} onAdd={(name)=>setTags(ts=>ts.includes(name)?ts:[...ts,name])} onRemove={(name)=>{setTags(ts=>ts.filter(t=>t!==name));setTasks(ts=>ts.map(t=>t.tag===name?{...t,tag:''}:t));if(activeTag===name)setActiveTag(null);}} onRename={(old,next)=>{setTags(ts=>ts.map(t=>t===old?next:t));setTasks(ts=>ts.map(t=>t.tag===old?{...t,tag:next}:t));if(activeTag===old)setActiveTag(next);}} onClose={()=>closeModalAnimated(()=>setModal(null))}/>
       )}
-      {showOnboard&&(
+      {showOnboard&&(SANDBOX?(
+        <Tour
+          onFinish={()=>{localStorage.setItem(LS_ONBOARD_KEY,'1');setShowOnboard(false);}}
+          onCreateAccount={()=>{localStorage.setItem(LS_ONBOARD_KEY,'1');setShowOnboard(false);setModal({type:'signup'});}}
+        />
+      ):(
         <Onboarding
           firstName={profile.first}
           onCreateTask={({name,weight})=>setTasks(ts=>[...ts,{id:uid(),seq:Date.now(),date:todayKeyNow(),name,weight,stage:'todo',completed:false,tag:'',notes:'',subtasks:[]}])}
           onCreateHabit={({name,icon})=>setHabits(hs=>[...hs,{id:uid(),name,icon,cadence:'daily'}])}
           onFinish={()=>{localStorage.setItem(LS_ONBOARD_KEY,'1');setShowOnboard(false);}}/>
+      ))}
+      {modal?.type==='signup'&&(
+        <div className="modal-scrim" onMouseDown={()=>closeModalAnimated(()=>setModal(null))}>
+          <div className="modal__panel tour-signup" onMouseDown={(e)=>e.stopPropagation()}>
+            <LoginScreen embedded initialMode="signup" onSkip={()=>closeModalAnimated(()=>setModal(null))}/>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
 // ===== LOGIN SCREEN =====
-function LoginScreen(){
+function LoginScreen({embedded,initialMode,onSkip}){
   const[email,setEmail]=useState('');
   const[password,setPassword]=useState('');
-  const[mode,setMode]=useState('signin');
+  const[mode,setMode]=useState(initialMode||'signin');
   const[busy,setBusy]=useState(false);
   const[error,setError]=useState('');
   const sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
   // Set synchronously during render so the status-bar safe area matches immediately.
-  if(typeof document!=='undefined')document.documentElement.setAttribute('data-dark',sysDark?'true':'false');
+  if(!embedded&&typeof document!=='undefined')document.documentElement.setAttribute('data-dark',sysDark?'true':'false');
   const[first,setFirst]=useState('');
   const[last,setLast]=useState('');
   async function submit(e){
@@ -2837,6 +2992,11 @@ function LoginScreen(){
     if(!email.trim()||!password.trim())return;
     if(mode==='signup'&&(!first.trim()||!last.trim())){setError('Please enter your first and last name.');return;}
     setBusy(true);setError('');
+    if(SANDBOX){
+      setBusy(false);
+      setError('Sandbox preview — in the live app this would create your account.');
+      return;
+    }
     if(mode==='signup'){
       const{error:err}=await sb.auth.signUp({email:email.trim(),password,options:{data:{first_name:first.trim(),last_name:last.trim()}}});
       if(err){setError(err.message);setBusy(false);return;}
@@ -2848,14 +3008,17 @@ function LoginScreen(){
     }
     setBusy(false);
   }
-  return(
-    <div id="app" data-theme={sysDark?'dark':'light'} className="login">
-      <div className="login__hero">
-        <HeftMark size={42}/>
-        <h1 className="login__brand">Heft</h1>
-        <span className="login__stamp">Prioritize what matters</span>
-      </div>
+  const form=(
+    <React.Fragment>
+      {!embedded&&(
+        <div className="login__hero">
+          <HeftMark size={42}/>
+          <h1 className="login__brand">Heft</h1>
+          <span className="login__stamp">Prioritize what matters</span>
+        </div>
+      )}
       <form onSubmit={submit} className="login__card">
+        {embedded&&<h2 className="tour__title" style={{textAlign:'center',marginBottom:4}}>Create an account</h2>}
         {mode==='signup'&&(
           <div style={{display:'flex',gap:10}}>
             <input className="login__input" type="text" value={first} placeholder="First name" autoFocus onChange={(e)=>setFirst(e.target.value)}/>
@@ -2869,8 +3032,15 @@ function LoginScreen(){
         <p className="login__alt">
           {mode==='signin'?<React.Fragment>No account? <button type="button" className="login__lnk" onClick={()=>{setMode('signup');setError('');}}>Create one</button></React.Fragment>:<React.Fragment>Have an account? <button type="button" className="login__lnk" onClick={()=>{setMode('signin');setError('');}}>Sign in</button></React.Fragment>}
         </p>
+        {embedded&&onSkip&&<button type="button" className="onboard__skip" onClick={onSkip}>Not now</button>}
       </form>
-      <span className="login__foot">Your day, weighed.</span>
+      {!embedded&&<span className="login__foot">Your day, weighed.</span>}
+    </React.Fragment>
+  );
+  if(embedded)return form;
+  return(
+    <div id="app" data-theme={sysDark?'dark':'light'} className="login">
+      {form}
     </div>
   );
 }
@@ -2883,11 +3053,11 @@ function AppSplash(){
   // the status-bar safe area to flash the default light cream on cold boot.
   if(typeof document!=='undefined')document.documentElement.setAttribute('data-dark',sysDark?'true':'false');
   return(
-    <div id="app" data-theme={sysDark?'dark':'light'}
+    <div id="app" className="splash" data-theme={sysDark?'dark':'light'} role="img" aria-label="Heft"
       style={{display:'flex',flexDirection:'column',alignItems:'center',
               justifyContent:'center',gap:20,background:'var(--bg)'}}>
       <style>{`
-        @keyframes heftBarIn{0%{transform:scaleY(0);opacity:0}100%{transform:scaleY(1);opacity:1}}
+        @keyframes heftBarIn{0%{transform:scaleY(0.35);opacity:.35}100%{transform:scaleY(1);opacity:1}}
         @keyframes heftWordIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
         .splash-bar{transform-box:fill-box;transform-origin:50% 100%;
           animation:heftBarIn .55s cubic-bezier(.2,.9,.3,1.3) both;}
@@ -2903,9 +3073,9 @@ function AppSplash(){
         <rect className="splash-bar" x="19" y="11" width="2.6" height="8"  rx="1.2" fill="var(--w-extra)"/>
       </svg>
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,
-                   animation:'heftWordIn .5s ease both .5s'}}>
-        <span style={{fontFamily:'var(--font-serif)',fontSize:34,fontWeight:600,
-                      color:'var(--text)',letterSpacing:'-0.02em',lineHeight:1}}>Heft</span>
+                   animation:'heftWordIn .45s ease both .12s'}}>
+        <h1 className="splash__name" style={{fontFamily:'var(--font-serif)',fontSize:34,fontWeight:600,
+                      color:'var(--text)',letterSpacing:'-0.02em',lineHeight:1,margin:0}}>Heft</h1>
         <span className="splash__stamp">Prioritize what matters</span>
       </div>
     </div>
@@ -2915,10 +3085,11 @@ function AppSplash(){
 function Root(){
   const[session,setSession]=useState(SANDBOX?{user:{id:'sandbox-user',email:'sandbox@heft.test',user_metadata:{first_name:'Sandbox',last_name:'Tester'}}}:null);
   const[loading,setLoading]=useState(!SANDBOX);
-  // Guarantee splash shows for at least 1.8s even on fast connections
+  // Splash always finishes before login or the guest tour. Sandbox holds the
+  // branded beat so the intro sequence is splash → board → onboarding.
   const[splashDone,setSplashDone]=useState(false);
   useEffect(()=>{
-    const t=setTimeout(()=>setSplashDone(true),SANDBOX?300:900);
+    const t=setTimeout(()=>setSplashDone(true),SANDBOX?1800:900);
     return()=>clearTimeout(t);
   },[]);
   useEffect(()=>{
